@@ -6,6 +6,11 @@
  */
 
 use Drupal\Core\Routing\RouteMatchInterface;
+use Drupal\Core\Form\FormStateInterface;
+use Drupal\Core\Entity\EntityInterface;
+use Drupal\user\Entity\User;
+use Drupal\Core\Url;
+use Drupal\Core\Routing\LocalRedirectResponse;
 
 /**
  * Implements hook_help().
@@ -18,4 +23,250 @@ function content_lock_help($route_name, RouteMatchInterface $route_match) {
       $output .= '<p>' . t('Prevents multiple users from trying to edit a single node simultaneously to prevent edit conflicts.') . '</p>';
       return $output;
   }
+}
+
+/**
+ * Implements hook_hook_info().
+ */
+function content_lock_hook_info() {
+  $hooks = array(
+    'content_lock_path_protected',
+    'content_lock_skip_locking',
+    'content_lock_form_id_blacklist_alter',
+    'content_lock_node_type_blacklist_alter',
+    'content_lock_locked',
+    'content_lock_release',
+    'content_lock_entity_lockable',
+  );
+
+  return array_fill_keys($hooks, array('group' => 'content_lock'));
+}
+
+/**
+ * Implements hook_form_FORM_ID_alter().
+ */
+function content_lock_form_alter(&$form, FormStateInterface $form_state, $form_id) {
+  $base_form_id = isset($form_state->getBuildInfo()['base_form_id']) ? $form_state->getBuildInfo()['base_form_id'] : NULL;
+  $base_form_id_supported = [
+    'node_form',
+    'block_content_form',
+    'taxonomy_term_form',
+  ];
+  if (!in_array($base_form_id, $base_form_id_supported)) {
+    return;
+  }
+  /** @var \Drupal\core\Entity\ContentEntityInterface $entity */
+  $entity = $form_state->getFormObject()->getEntity();
+  $entity_type = $entity->getEntityTypeId();
+  $user = Drupal::currentUser();
+
+
+  // Check if we must lock this entity.
+  /** @var \Drupal\content_lock\ContentLock\ContentLock $lock_service */
+  $lock_service = \Drupal::service('content_lock');
+  if (!$lock_service->isLockable($entity)) {
+    return;
+  }
+
+  // We act only on edit form, not for a creation of a new entity.
+  if (!is_null($entity->id())) {
+    $form['actions']['submit']['#submit'][] = 'content_lock_form_submit';
+    $form['actions']['publish']['#submit'][] = 'content_lock_form_submit';
+
+    // This hook function is called twice, first when the form loads
+    // and second when the form is submitted.
+    // Only perform set and check for lock on initial form load.
+    $userInput = $form_state->getUserInput();
+    if (!empty($userInput)) {
+      return;
+    }
+
+    // We lock the content if it is currently edited by another user.
+    if (!$lock_service->locking($entity->id(), $user->id(), $entity_type)) {
+      $form['#disabled'] = TRUE;
+
+      // Do not allow deletion, publishing, or unpublishing if locked.
+      if (isset($form['actions']['delete'])) {
+        unset($form['actions']['delete']);
+      }
+
+      if (isset($form['actions']['publish'])) {
+        unset($form['actions']['publish']);
+      }
+      if (isset($form['actions']['unpublish'])) {
+        unset($form['actions']['unpublish']);
+      }
+    }
+    else {
+      // ContentLock::locking() returns TRUE if the content is locked by the
+      // current user. Add an unlock button only for this user.
+      $form['actions']['unlock'] = $lock_service->unlockButton($entity_type, $entity->id(), \Drupal::request()->query->get('destination'));
+    }
+  }
+}
+
+/**
+ * Submit handler for content_lock.
+ */
+function content_lock_form_submit($form, FormStateInterface $form_state) {
+  // Signals editing is finished; remove the lock.
+  $user = \Drupal::currentUser();
+
+  /** @var \Drupal\content_lock\ContentLock\ContentLock $lock_service */
+  $lock_service = \Drupal::service('content_lock');
+  /** @var \Drupal\core\Entity\ContentEntityInterface $entity */
+  $entity = $form_state->getFormObject()->getEntity();
+
+  // If the user submitting owns the lock, release it.
+  $lock_service->release($entity->id(), $user->id(), $entity->getEntityTypeId());
+
+  // We need to redirect to the taxonomy term page after saving it. If not, we
+  // stay on the taxonomy term edit form and we relock the term.
+  if ($entity->getEntityTypeId() === 'taxonomy_term') {
+    $form_state->setRedirect(
+      'entity.taxonomy_term.canonical',
+      array('taxonomy_term' => $entity->id())
+    );
+  }
+
+}
+
+/**
+ * Implements hook_entity_predelete().
+ *
+ * Check if the entity attempting to be deleted is locked and prevent deletion.
+ */
+function content_lock_entity_predelete(EntityInterface $entity) {
+  $entity_id = $entity->id();
+  $entity_type = $entity->getEntityTypeId();
+
+  // We support BlockContent, Term and Node entity type only.
+  $entity_type_supported = [
+    'node',
+    'block_content',
+    'taxonomy_term',
+  ];
+  if (!in_array($entity_type, $entity_type_supported)) {
+    return;
+  }
+
+  /** @var \Drupal\content_lock\ContentLock\ContentLock $lock_service */
+  $lock_service = \Drupal::service('content_lock');
+  $data = $lock_service->fetchLock($entity_id, $entity_type);
+
+  if ($data !== FALSE) {
+    $current_user = \Drupal::currentUser();
+    // If the entity is locked, and current user is not the lock's owner,
+    // set a message and stop deletion.
+    if ($current_user->id() !== $data->uid) {
+      $lock_user = User::load($data->uid);
+      $message = t('@entity cannot be deleted because it was locked by @user since @time.', array(
+        '@entity' => $entity->label(),
+        '@user' => $lock_user->getDisplayName(),
+        '@time' => \Drupal::service('date.formatter')->formatInterval(REQUEST_TIME - $data->timestamp),
+      ));
+
+      drupal_set_message($message, 'warning');
+
+      $url = Url::fromRoute('entity.' . $entity_type . '.canonical', array($entity_type => $entity_id))->toString();
+
+      $redirect = new LocalRedirectResponse($url);
+      $redirect->send();
+      exit(0);
+    }
+  }
+}
+
+/**
+ * Implements hook_views_data().
+ */
+function content_lock_views_data() {
+  // Define the return array.
+  $data = [];
+
+  $data['content_lock']['table']['group'] = t('Content lock');
+
+  $data['content_lock']['table']['provider'] = 'content_lock';
+
+  $data['content_lock']['table']['join'] = array(
+    'node_field_data' => array(
+      'left_field' => 'nid',
+      'field' => 'entity_id',
+      'extra' => array(
+        0 => array(
+          'field' => 'entity_type',
+          'value' => 'node',
+        ),
+      ),
+    ),
+    'users_field_data' => [
+      'left_field' => 'uid',
+      'field' => 'uid',
+    ],
+  );
+
+  $data['content_lock']['nid'] = array(
+    'title' => t('Node locked'),
+    'help' => t('The node being locked.'),
+    'relationship' => array(
+      'base' => 'node_field_data',
+      'base field' => 'nid',
+      'id' => 'standard',
+      'label' => t('Node locked'),
+    ),
+  );
+
+  $data['content_lock']['uid'] = array(
+    'title' => t('Lock owner'),
+    'help' => t('The user locking the node.'),
+    'relationship' => array(
+      'base' => 'users_field_data',
+      'base field' => 'uid',
+      'id' => 'standard',
+      'label' => t('Lock owner'),
+    ),
+  );
+
+  $data['content_lock']['timestamp'] = array(
+    'title' => t('Lock Date/Time'),
+    'help' => t('Timestamp of the lock'),
+    'field' => array(
+      'id' => 'date',
+      'click sortable' => TRUE,
+    ),
+    'sort' => array(
+      'id' => 'date',
+    ),
+    'filter' => array(
+      'id' => 'date',
+    ),
+  );
+
+  $data['content_lock']['is_locked'] = array(
+    'title' => t('Is Locked'),
+    'help' => t('Whether the node is currently locked'),
+    'field' => array(
+      'id' => 'content_lock_field',
+      'additional fields' => ['timestamp' => ['table' => 'content_lock', 'field' => 'timestamp']],
+    ),
+    'sort' => array(
+      'id' => 'content_lock_sort',
+    ),
+    'filter' => array(
+      'id' => 'content_lock_filter',
+      'click sortable' => TRUE,
+    ),
+  );
+
+  // Break link.
+  $data['content_lock']['break'] = array(
+    'title' => t('Break link'),
+    'help' => t('Link to break the content lock.'),
+    'field' => array(
+      'id' => 'content_lock_break_link',
+      'real field' => 'entity_id',
+    ),
+  );
+
+  return $data;
 }

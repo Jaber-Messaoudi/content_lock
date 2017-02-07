@@ -1,4 +1,6 @@
-name: Content locking
-description: 'Prevents multiple users from trying to edit a single node simultaneously to prevent edit conflicts.'
+name: Content Lock
+description: 'Prevents multiple users from trying to edit a content entity simultaneously to prevent edit conflicts.'
 type: module
+package: Custom
 core: 8.x
+configure: content_lock.content_lock_settings_form

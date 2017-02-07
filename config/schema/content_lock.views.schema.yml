@@ -1,0 +1,7 @@
+views.filter.content_lock_filter:
+  type: views.filter.boolean
+  label: 'Is Locked'
+  mapping:
+    value:
+      type: string
+      label: 'Value'

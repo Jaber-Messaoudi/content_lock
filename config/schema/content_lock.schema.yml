@@ -1,0 +1,24 @@
+content_lock.settings:
+  type: config_object
+  mapping:
+    verbose:
+      type: integer
+      label: 'Display content lock messages'
+    node:
+      type: sequence
+      label: 'Node'
+      sequence:
+        type: string
+        label: 'Bundle'
+    block_content:
+      type: sequence
+      label: 'BlockContent'
+      sequence:
+        type: string
+        label: 'BlockContent type'
+    taxonomy_term:
+      type: sequence
+      label: 'Vocabularies'
+      sequence:
+        type: string
+        label: 'Vocabulary'

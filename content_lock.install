@@ -1,0 +1,60 @@
+<?php
+/**
+ * @file
+ * Create content_lock table.
+ */
+
+use Drupal\locale\Gettext;
+
+/**
+ * Implements hook_schema().
+ */
+function content_lock_schema() {
+  $schema['content_lock'] = array(
+    'description' => 'content lock module table.',
+    'fields' => array(
+      'entity_id' => array(
+        'description' => 'The primary identifier for an entity.',
+        'type' => 'int',
+        'size' => 'normal',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0,
+      ),
+      'entity_type' => array(
+        'description' => 'The type of an entity.',
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => TRUE,
+        'default' => 'node',
+      ),
+      'uid' => array(
+        'description' => 'User that holds the lock.',
+        'type' => 'int',
+        'size' => 'normal',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0,
+      ),
+      'timestamp' => array(
+        'description' => 'Time the lock occurred.',
+        'size' => 'normal',
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0,
+      ),
+    ),
+    'indexes' => array(
+      'user' => array('uid'),
+    ),
+    'foreign keys' => array(
+      'uid' => array(
+        'table' => 'users_field_data',
+        'columns' => array('uid' => 'uid'),
+      ),
+    ),
+  );
+
+  return $schema;
+}

@@ -1,0 +1,46 @@
+content_lock.break_lock.node:
+  path: '/admin/break-lock/node/{node}'
+  defaults:
+    _form: Drupal\content_lock\Form\BreakLockNodeForm
+    _title: 'Break lock'
+  requirements:
+    _custom_access: Drupal\content_lock\Form\BreakLockNodeForm::access
+  options:
+    _admin_route: TRUE
+    parameters:
+      node:
+        type: entity:node
+content_lock.break_lock.taxonomy_term:
+  path: '/admin/break-lock/term/{taxonomy_term}'
+  defaults:
+    _form: Drupal\content_lock\Form\BreakLockTermForm
+    _title: 'Break lock'
+  requirements:
+    _custom_access: Drupal\content_lock\Form\BreakLockTermForm::access
+  options:
+    _admin_route: TRUE
+    parameters:
+      taxonomy_term:
+        type: entity:taxonomy_term
+content_lock.break_lock.block_content:
+  path: '/admin/break-lock/block/{block_content}'
+  defaults:
+    _form: Drupal\content_lock\Form\BreakLockBlockContentForm
+    _title: 'Break lock'
+  requirements:
+    _custom_access: Drupal\content_lock\Form\BreakLockBlockContentForm::access
+  options:
+    _admin_route: TRUE
+    parameters:
+      block_content:
+        type: entity:block_content
+
+content_lock.content_lock_settings_form:
+  path: '/admin/config/content_lock/contentlocksettings'
+  defaults:
+    _form: '\Drupal\content_lock\Form\ContentLockSettingsForm'
+    _title: 'Content Lock Settings'
+  requirements:
+    _permission: 'administer content lock'
+  options:
+    _admin_route: TRUE
