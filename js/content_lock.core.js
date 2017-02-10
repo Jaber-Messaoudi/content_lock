@@ -143,11 +143,14 @@ function attachEventListener(obj, type, func, capture) {
 
     $('form').each(function () {
       var obj = $(this);
-      var currentonSubmit = obj.attr('onSubmit');
-      if (typeof currentonSubmit === 'undefined') {
-        currentonSubmit = '';
+
+      if (!$(this).parent().hasClass('modal-content')) {
+        var currentonSubmit = obj.attr('onSubmit');
+        if (typeof currentonSubmit === 'undefined') {
+          currentonSubmit = '';
+        }
+        obj.attr('onSubmit', currentonSubmit + ' userMovingWithinSite();');
       }
-      obj.attr('onSubmit', currentonSubmit + ' userMovingWithinSite();');
     });
 
     // For Refresh Detection.
