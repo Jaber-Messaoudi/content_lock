@@ -41,6 +41,9 @@ class ContentLockViewsHandlerFieldLocked extends views_handler_field_boolean {
       case 'on-off':
         return $value ? t('On') : t('Off');
 
+      case 'custom':
+        return $value ? $this->options['type_custom_true'] : $this->options['type_custom_false'];
+
       case 'yes-no':
       default:
         return $value ? t('Yes') : t('No');
