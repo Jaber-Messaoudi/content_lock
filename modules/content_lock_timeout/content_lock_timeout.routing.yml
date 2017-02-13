@@ -4,6 +4,6 @@ content_lock_timeout.settings_form:
     _form: '\Drupal\content_lock_timeout\Form\SettingsForm'
     _title: 'SettingsForm'
   requirements:
-    _permission: 'access administration pages'
+    _permission: 'administer content lock'
   options:
     _admin_route: TRUE
