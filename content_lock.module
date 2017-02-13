@@ -270,3 +270,31 @@ function content_lock_views_data() {
 
   return $data;
 }
+
+/**
+ * Implements hook_entity_operation().
+ */
+function content_lock_entity_operation(EntityInterface $entity) {
+  $operations = [];
+
+  if (in_array($entity->getEntityTypeId(), [
+    'node', 'taxonomy_term', 'block_content',
+  ])) {
+
+    /** @var \Drupal\content_lock\ContentLock\ContentLock $lock_service */
+    $lock_service = \Drupal::service('content_lock');
+    $lock = $lock_service->fetchLock($entity->id(), $entity->getEntityTypeId());
+
+    $user = \Drupal::currentUser();
+    if ($lock && $user->hasPermission('break content lock')) {
+      $url = 'content_lock.break_lock.' . $entity->getEntityTypeId();
+      $operations['break_lock'] = array(
+        'title' => t('Break lock'),
+        'url' => Url::fromRoute($url, [$entity->getEntityTypeId() => $entity->id()]),
+        'weight' => 50,
+      );
+    }
+  }
+
+  return $operations;
+}
