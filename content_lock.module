@@ -5,6 +5,8 @@
  * Allows users to lock documents for modification.
  */
 
+require_once DRUPAL_ROOT . '/' . drupal_get_path('module', 'content_lock') . "/includes/content_lock.node.inc";
+
 /**
  * Implements hook_help().
  */
