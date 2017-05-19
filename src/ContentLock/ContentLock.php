@@ -2,7 +2,7 @@
 
 namespace Drupal\content_lock\ContentLock;
 
-use Drupal\Core\Database\Driver\mysql\Connection;
+use Drupal\Core\Database\Connection;
 use Drupal\Core\Entity\EntityInterface;
 use Drupal\Core\Extension\ModuleHandler;
 use Drupal\Core\DependencyInjection\ServiceProviderBase;
@@ -24,7 +24,7 @@ class ContentLock extends ServiceProviderBase {
   /**
    * The database service.
    *
-   * @var \Drupal\Core\Database\Driver\mysql\Connection
+   * @var \Drupal\Core\Database\Connection
    *   The database service.
    */
   protected $database;
@@ -72,7 +72,7 @@ class ContentLock extends ServiceProviderBase {
   /**
    * Constructor.
    *
-   * @param \Drupal\Core\Database\Driver\mysql\Connection $database
+   * @param \Drupal\Core\Database\Connection $database
    *   The database connection.
    * @param \Drupal\Core\Extension\ModuleHandler $moduleHandler
    *   The module Handler service.
