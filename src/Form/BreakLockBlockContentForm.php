@@ -13,6 +13,9 @@ use Drupal\block_content\Entity\BlockContent;
  */
 class BreakLockBlockContentForm extends BreakLockFormBase {
 
+  /**
+   *
+   */
   protected function getEntityType() {
     return 'block_content';
   }

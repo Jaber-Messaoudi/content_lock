@@ -10,6 +10,7 @@ use Drupal\views\Plugin\views\sort\Standard;
  * @ViewsSort("content_lock_sort")
  */
 class ContentLockSort extends Standard {
+
   /**
    * Query.
    */
@@ -17,4 +18,5 @@ class ContentLockSort extends Standard {
     $this->ensureMyTable();
     $this->query->addOrderBy($this->table_alias, 'timestamp', $this->options['order']);
   }
+
 }

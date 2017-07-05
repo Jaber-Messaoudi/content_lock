@@ -13,6 +13,9 @@ use Drupal\taxonomy\Entity\Term;
  */
 class BreakLockTermForm extends BreakLockFormBase {
 
+  /**
+   *
+   */
   protected function getEntityType() {
     return 'taxonomy_term';
   }

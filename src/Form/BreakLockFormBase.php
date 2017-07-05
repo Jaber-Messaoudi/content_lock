@@ -11,12 +11,18 @@ use Drupal\Core\Url;
 /**
  * Provides a base class for break content lock forms.
  */
-abstract class BreakLockFormBase extends FormBase  {
+abstract class BreakLockFormBase extends FormBase {
 
+  /**
+   *
+   */
   protected function getEntityType() {
     return 'node';
   }
 
+  /**
+   *
+   */
   public function submitForm(array &$form, FormStateInterface $form_state) {
     $entity_type = $this->getEntityType();
     $entity_id = $form_state->getValue('entity_id');
@@ -31,7 +37,7 @@ abstract class BreakLockFormBase extends FormBase  {
       $form_state->setRedirectUrl($url);
     }
     else {
-      $this->redirect("entity.$entity_type.canonical", array($entity_type => $entity_id))->send();
+      $this->redirect("entity.$entity_type.canonical", [$entity_type => $entity_id])->send();
     }
   }
 
@@ -43,4 +49,5 @@ abstract class BreakLockFormBase extends FormBase  {
     $lock_service = \Drupal::service('content_lock');
     return AccessResult::allowedIf($account->hasPermission('break content lock') || $lock_service->isLockedBy($entity_id, $account->id(), $entity_type));
   }
+
 }

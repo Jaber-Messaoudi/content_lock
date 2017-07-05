@@ -64,7 +64,7 @@ class ContentLock extends ServiceProviderBase {
   /**
    * The config.factory service.
    *
-   * @var \Drupal\Core\Config\ConfigFactory $configFactory
+   * @var \Drupal\Core\Config\ConfigFactory
    *   The config.factory service.
    */
   protected $configFactory;
@@ -108,7 +108,7 @@ class ContentLock extends ServiceProviderBase {
    *   Returns TRUE if the path is protected or FALSE if not protected.
    */
   public function isPathProtected($path) {
-    $cache = &drupal_static(__FUNCTION__, array());
+    $cache = &drupal_static(__FUNCTION__, []);
 
     // Check cache.
     if (isset($cache[$path])) {
@@ -116,13 +116,13 @@ class ContentLock extends ServiceProviderBase {
     }
 
     // Invoke hook and collect grants/denies for protected paths.
-    $protected = array();
+    $protected = [];
     foreach ($this->moduleHandler->getImplementations('content_lock_path_protected') as $module) {
       $protected = array_merge(
         $protected,
-        array(
+        [
           $module => $this->moduleHandler->invoke($module, 'content_lock_path_protected', $path),
-        )
+        ]
       );
     }
 
@@ -182,24 +182,24 @@ class ContentLock extends ServiceProviderBase {
     $username = User::load($lock->uid);
     $date = $this->dateFormatter->formatInterval(REQUEST_TIME - $lock->timestamp);
 
-    return t('This content is being edited by the user @name and is therefore locked to prevent other users changes. This lock is in place since @date.', array(
+    return t('This content is being edited by the user @name and is therefore locked to prevent other users changes. This lock is in place since @date.', [
       '@name' => $username->getDisplayName(),
       '@date' => $date,
-    ));
+    ]);
   }
 
   /**
    * Check lock status.
    *
    * @param int $uid
-   *    The user id.
+   *   The user id.
    * @param int $entity_id
-   *    The entity id.
+   *   The entity id.
    * @param string $entity_type
    *   The entity type.
    *
    * @return bool
-   *    Return TRUE OR FALSE.
+   *   Return TRUE OR FALSE.
    */
   public function isLockedBy($entity_id, $uid, $entity_type = 'node') {
     /** @var \Drupal\Core\Database\Query\SelectInterface $query */
@@ -218,7 +218,7 @@ class ContentLock extends ServiceProviderBase {
    * @param int $entity_id
    *   The entity id.
    * @param int $uid
-   *    If set, verify that a lock belongs to this user prior to release.
+   *   If set, verify that a lock belongs to this user prior to release.
    * @param string $entity_type
    *   The entity type.
    */
@@ -248,9 +248,9 @@ class ContentLock extends ServiceProviderBase {
    * Save lock warning.
    *
    * @param string $message
-   *    Message string.
+   *   Message string.
    * @param int $entity_id
-   *    The entity id.
+   *   The entity id.
    */
   protected function saveLockWarning($message, $entity_id) {
     if (empty($_SESSION['content_lock'])) {
@@ -258,7 +258,7 @@ class ContentLock extends ServiceProviderBase {
     }
     $data = unserialize($_SESSION['content_lock']);
     if (!is_array($data)) {
-      $data = array();
+      $data = [];
     }
 
     if (array_key_exists($entity_id, $data)) {
@@ -299,7 +299,7 @@ class ContentLock extends ServiceProviderBase {
    * @param string $entity_type
    *   The entity type.
    *
-   * @return bool $result
+   * @return bool
    *   The result of the merge query.
    */
   protected function lockingSave($entity_id, $uid, $entity_type = 'node') {
@@ -483,7 +483,7 @@ class ContentLock extends ServiceProviderBase {
       $unlock_url_options['query'] = ['destination' => $destination];
     }
     return [
-      '#type' =>  'link',
+      '#type' => 'link',
       '#title' => t('Unlock'),
       '#access' => TRUE,
       '#attributes' => [

@@ -2,16 +2,8 @@
 
 namespace Drupal\content_lock\Tests;
 
-use Drupal\field\Entity\FieldConfig;
-use Drupal\field\Entity\FieldStorageConfig;
-use Drupal\Core\Entity\Entity\EntityFormDisplay;
-use Drupal\Core\Entity\Display\EntityFormDisplayInterface;
-use Drupal\Core\Entity\Entity\EntityViewDisplay;
-use Drupal\Core\Entity\Display\EntityViewDisplayInterface;
 use Drupal\simpletest\WebTestBase;
 use Drupal\taxonomy\Tests\TaxonomyTestTrait;
-use Drupal\taxonomy\VocabularyInterface;
-use Drupal\user\Entity\User;
 use Drupal\block_content\Entity\BlockContent;
 use Drupal\block_content\Entity\BlockContentType;
 
@@ -28,7 +20,7 @@ class ContentLockTestBase extends WebTestBase {
    *
    * @var array
    */
-  public static $modules = array(
+  public static $modules = [
     'system',
     'language',
     'user',
@@ -40,7 +32,7 @@ class ContentLockTestBase extends WebTestBase {
     'block_content',
     'content_lock',
     'content_lock_timeout',
-  );
+  ];
 
   /**
    * Array standard permissions for normal user.
@@ -178,11 +170,11 @@ class ContentLockTestBase extends WebTestBase {
    */
   protected function createBlockContent($title = FALSE, $bundle = 'basic', $save = TRUE) {
     $title = $title ?: $this->randomMachineName();
-    $block_content = BlockContent::create(array(
+    $block_content = BlockContent::create([
       'info' => $title,
       'type' => $bundle,
-      'langcode' => 'en'
-    ));
+      'langcode' => 'en',
+    ]);
     if ($block_content && $save === TRUE) {
       $block_content->save();
     }
@@ -201,11 +193,11 @@ class ContentLockTestBase extends WebTestBase {
    *   Created custom block type.
    */
   protected function createBlockContentType($label, $create_body = FALSE) {
-    $bundle = BlockContentType::create(array(
+    $bundle = BlockContentType::create([
       'id' => $label,
       'label' => $label,
       'revision' => FALSE,
-    ));
+    ]);
     $bundle->save();
     if ($create_body) {
       block_content_add_body_field($bundle->id());
@@ -234,13 +226,13 @@ class ContentLockTestBase extends WebTestBase {
     // Other user can not edit article1.
     $this->drupalLogin($this->user2);
     $this->drupalGet("node/{$this->article1->id()}/edit");
-    $this->assertText(t('This content is being edited by the user @name and is therefore locked to prevent other users changes.', array(
+    $this->assertText(t('This content is being edited by the user @name and is therefore locked to prevent other users changes.', [
       '@name' => $this->user1->getDisplayName(),
-    )));
+    ]));
     $this->assertLink(t('Break lock'));
-    $disabled_button = $this->xpath('//input[@id=:id and @disabled="disabled"]', array(':id' => 'edit-submit'));
+    $disabled_button = $this->xpath('//input[@id=:id and @disabled="disabled"]', [':id' => 'edit-submit']);
     $this->assertTrue($disabled_button, t('The form cannot be submitted.'));
-    $disabled_field = $this->xpath('//textarea[@id=:id and @disabled="disabled"]', array(':id' => 'edit-body-0-value'));
+    $disabled_field = $this->xpath('//textarea[@id=:id and @disabled="disabled"]', [':id' => 'edit-body-0-value']);
     $this->assertTrue($disabled_field, t('The form cannot be submitted.'));
 
     // We save article 1 and unlock it.
@@ -258,11 +250,11 @@ class ContentLockTestBase extends WebTestBase {
     // Other user can not edit article1.
     $this->drupalLogin($this->user1);
     $this->drupalGet("node/{$this->article1->id()}/edit");
-    $this->assertText(t('This content is being edited by the user @name and is therefore locked to prevent other users changes.', array(
+    $this->assertText(t('This content is being edited by the user @name and is therefore locked to prevent other users changes.', [
       '@name' => $this->user2->getDisplayName(),
-    )));
+    ]));
     $this->assertNoLink(t('Break lock'));
-    $disabled_button = $this->xpath('//input[@id=:id and @disabled="disabled"]', array(':id' => 'edit-submit'));
+    $disabled_button = $this->xpath('//input[@id=:id and @disabled="disabled"]', [':id' => 'edit-submit']);
     $this->assertTrue($disabled_button, t('The form cannot be submitted.'));
 
     // We unlock article1 with user2.
@@ -296,11 +288,11 @@ class ContentLockTestBase extends WebTestBase {
     // Other user can not edit block1.
     $this->drupalLogin($this->user2);
     $this->drupalGet("block/{$this->block1->id()}");
-    $this->assertText(t('This content is being edited by the user @name and is therefore locked to prevent other users changes.', array(
+    $this->assertText(t('This content is being edited by the user @name and is therefore locked to prevent other users changes.', [
       '@name' => $this->user1->getDisplayName(),
-    )));
+    ]));
     $this->assertLink(t('Break lock'));
-    $disabled_button = $this->xpath('//input[@id=:id and @disabled="disabled"]', array(':id' => 'edit-submit'));
+    $disabled_button = $this->xpath('//input[@id=:id and @disabled="disabled"]', [':id' => 'edit-submit']);
     $this->assertTrue($disabled_button, t('The form cannot be submitted.'));
 
     // We save block1 and unlock it.
@@ -318,11 +310,11 @@ class ContentLockTestBase extends WebTestBase {
     // Other user can not edit block1.
     $this->drupalLogin($this->user1);
     $this->drupalGet("block/{$this->block1->id()}");
-    $this->assertText(t('This content is being edited by the user @name and is therefore locked to prevent other users changes.', array(
+    $this->assertText(t('This content is being edited by the user @name and is therefore locked to prevent other users changes.', [
       '@name' => $this->user2->getDisplayName(),
-    )));
+    ]));
     $this->assertNoLink(t('Break lock'));
-    $disabled_button = $this->xpath('//input[@id=:id and @disabled="disabled"]', array(':id' => 'edit-submit'));
+    $disabled_button = $this->xpath('//input[@id=:id and @disabled="disabled"]', [':id' => 'edit-submit']);
     $this->assertTrue($disabled_button, t('The form cannot be submitted.'));
 
     // We unlock block1 with user2.
@@ -355,11 +347,11 @@ class ContentLockTestBase extends WebTestBase {
     // Other user can not edit term1.
     $this->drupalLogin($this->user2);
     $this->drupalGet("taxonomy/term/{$this->term1->id()}/edit");
-    $this->assertText(t('This content is being edited by the user @name and is therefore locked to prevent other users changes.', array(
+    $this->assertText(t('This content is being edited by the user @name and is therefore locked to prevent other users changes.', [
       '@name' => $this->user1->getDisplayName(),
-    )));
+    ]));
     $this->assertLink(t('Break lock'));
-    $disabled_button = $this->xpath('//input[@id=:id and @disabled="disabled"]', array(':id' => 'edit-submit'));
+    $disabled_button = $this->xpath('//input[@id=:id and @disabled="disabled"]', [':id' => 'edit-submit']);
     $this->assertTrue($disabled_button, t('The form cannot be submitted.'));
 
     // We save term1 and unlock it.
@@ -377,11 +369,11 @@ class ContentLockTestBase extends WebTestBase {
     // Other user can not edit term1.
     $this->drupalLogin($this->user1);
     $this->drupalGet("taxonomy/term/{$this->term1->id()}/edit");
-    $this->assertText(t('This content is being edited by the user @name and is therefore locked to prevent other users changes.', array(
+    $this->assertText(t('This content is being edited by the user @name and is therefore locked to prevent other users changes.', [
       '@name' => $this->user2->getDisplayName(),
-    )));
+    ]));
     $this->assertNoLink(t('Break lock'));
-    $disabled_button = $this->xpath('//input[@id=:id and @disabled="disabled"]', array(':id' => 'edit-submit'));
+    $disabled_button = $this->xpath('//input[@id=:id and @disabled="disabled"]', [':id' => 'edit-submit']);
     $this->assertTrue($disabled_button, t('The form cannot be submitted.'));
 
     // We unlock term1 with user2.

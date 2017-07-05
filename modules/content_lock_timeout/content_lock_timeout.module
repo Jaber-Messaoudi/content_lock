@@ -1,4 +1,5 @@
 <?php
+
 /**
  * @file
  * Allowed time-based automatic unlocking of nodes.
@@ -29,7 +30,7 @@ function content_lock_timeout_cron() {
   // hook_content_lock_released may be invoked.
   $query = \Drupal::database()->select('content_lock', 'c');
   $query->fields('c')
-        ->condition('c.timestamp', $last_valid_time, '<');
+    ->condition('c.timestamp', $last_valid_time, '<');
   $count = 0;
   foreach ($query->execute() as $obj) {
     $lock_service->release($obj->entity_id, $obj->uid, $obj->entity_type);
@@ -44,7 +45,6 @@ function content_lock_timeout_cron() {
     );
   }
 }
-
 
 /**
  * Implements hook_entity_prepare_form().
@@ -62,7 +62,6 @@ function content_lock_timeout_entity_prepare_form(EntityInterface $entity, $oper
 
     /** @var \Drupal\content_lock\ContentLock\ContentLock $lock_service */
     $lock_service = \Drupal::service('content_lock');
-
 
     // This is a new, unsaved entity (which thus can't be locked).
     // This is a stale lock.
@@ -90,11 +89,11 @@ function content_lock_timeout_entity_prepare_form(EntityInterface $entity, $oper
         $date = \Drupal::service('date.formatter')->formatInterval(REQUEST_TIME - $lock->timestamp);
         $stale_time = \Drupal::service('date.formatter')->formatInterval($last_valid_time - $lock->timestamp);
         drupal_set_message(t('Breaking existing lock by @name so that you may edit this node. (This lock was set @date ago and was stale since @stale_time.)',
-          array(
+          [
             '@name' => $username,
             '@date' => $date,
             '@stale_time' => $stale_time,
-          )));
+          ]));
       }
     }
   }

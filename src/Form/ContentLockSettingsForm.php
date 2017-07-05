@@ -5,7 +5,6 @@ namespace Drupal\content_lock\Form;
 use Drupal\Core\Form\ConfigFormBase;
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\Config\ConfigFactoryInterface;
-use Drupal\node\Entity\NodeType;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 use Drupal\Core\Entity\EntityTypeManager;
 
@@ -128,8 +127,6 @@ class ContentLockSettingsForm extends ConfigFormBase {
       '#default_value' => $config->get('taxonomy_term'),
     ];
 
-
-
     return parent::buildForm($form, $form_state);
   }
 
@@ -160,11 +157,11 @@ class ContentLockSettingsForm extends ConfigFormBase {
    * @param array $array
    *   The array to check for empty values.
    *
-   * @return array $array
+   * @return array
    *   The array without empty values.
    */
   protected function removeEmptyValue($array) {
-    return array_filter($array, function($value) {
+    return array_filter($array, function ($value) {
       return !empty($value);
     });
   }

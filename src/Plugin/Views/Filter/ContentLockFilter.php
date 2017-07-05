@@ -11,6 +11,7 @@ use Drupal\views\Plugin\views\filter\BooleanOperator;
  * @ViewsFilter("content_lock_filter")
  */
 class ContentLockFilter extends BooleanOperator {
+
   /**
    * Query.
    */
@@ -23,4 +24,5 @@ class ContentLockFilter extends BooleanOperator {
       $this->query->addWhere($this->options['group'], $this->tableAlias . ".timestamp", "NULL", "<>");
     }
   }
+
 }

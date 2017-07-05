@@ -2,10 +2,8 @@
 
 namespace Drupal\content_lock\Plugin\Views\Field;
 
-use Drupal\views\Plugin\views\display\DisplayPluginBase;
 use Drupal\views\Plugin\views\field\Boolean;
 use Drupal\views\ResultRow;
-use Drupal\views\ViewExecutable;
 
 /**
  * A handler to provide proper displays for dates.
@@ -15,6 +13,7 @@ use Drupal\views\ViewExecutable;
  * @ViewsField("content_lock_field")
  */
 class ContentLockField extends Boolean {
+
   /**
    * Query.
    */
@@ -44,4 +43,5 @@ class ContentLockField extends Boolean {
         return $value ? t('Yes') : t('No');
     }
   }
+
 }
