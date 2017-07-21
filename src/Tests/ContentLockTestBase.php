@@ -215,7 +215,7 @@ class ContentLockTestBase extends WebTestBase {
     $edit = [
       'node[article]' => 1,
     ];
-    $this->drupalPostForm('admin/config/content_lock/contentlocksettings', $edit, t('Save configuration'));
+    $this->drupalPostForm('admin/config/content/contentlocksettings', $edit, t('Save configuration'));
 
     // We lock article1.
     $this->drupalLogin($this->user1);
@@ -277,7 +277,7 @@ class ContentLockTestBase extends WebTestBase {
     $edit = [
       'block_content[basic]' => 1,
     ];
-    $this->drupalPostForm('admin/config/content_lock/contentlocksettings', $edit, t('Save configuration'));
+    $this->drupalPostForm('admin/config/content/contentlocksettings', $edit, t('Save configuration'));
 
     // We lock block1.
     $this->drupalLogin($this->user1);
@@ -336,7 +336,7 @@ class ContentLockTestBase extends WebTestBase {
     $edit = [
       'taxonomy_term[' . $this->term1->bundle() . ']' => 1,
     ];
-    $this->drupalPostForm('admin/config/content_lock/contentlocksettings', $edit, t('Save configuration'));
+    $this->drupalPostForm('admin/config/content/contentlocksettings', $edit, t('Save configuration'));
 
     // We lock term1.
     $this->drupalLogin($this->user1);
