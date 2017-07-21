@@ -406,7 +406,7 @@ class ContentLock extends ServiceProviderBase {
           $link = Link::createFromRoute(
             t('Break lock'),
             'content_lock.break_lock.' . $entity_type,
-            [$entity_type => $entity_id],
+            ['entity' => $entity_id],
             ['query' => ['destination' => $destination]]
           )->toString();
 
@@ -446,7 +446,7 @@ class ContentLock extends ServiceProviderBase {
     $entity_type = $entity->getEntityTypeId();
     $bundle = $entity->bundle();
 
-    $config = $this->configFactory->get('content_lock.settings')->get($entity_type);
+    $config = $this->configFactory->get('content_lock.settings')->get("types.$entity_type");
 
     $this->moduleHandler->invokeAll('content_lock_entity_lockable', [
       $entity,
@@ -456,7 +456,7 @@ class ContentLock extends ServiceProviderBase {
       $config,
     ]);
 
-    if (in_array($bundle, $config)) {
+    if (is_array($config) && in_array($bundle, $config)) {
       return TRUE;
     }
 
@@ -489,7 +489,7 @@ class ContentLock extends ServiceProviderBase {
       '#attributes' => [
         'class' => ['button'],
       ],
-      '#url' => Url::fromRoute('content_lock.break_lock.' . $entity_type, [$entity_type => $entity_id], $unlock_url_options),
+      '#url' => Url::fromRoute('content_lock.break_lock.' . $entity_type, ['entity' => $entity_id], $unlock_url_options),
       '#weight' => 200,
     ];
   }

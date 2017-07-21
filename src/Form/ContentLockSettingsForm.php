@@ -2,6 +2,7 @@
 
 namespace Drupal\content_lock\Form;
 
+use Drupal\Core\Entity\ContentEntityTypeInterface;
 use Drupal\Core\Form\ConfigFormBase;
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\Config\ConfigFactoryInterface;
@@ -88,53 +89,30 @@ class ContentLockSettingsForm extends ConfigFormBase {
       '#weight' => 1,
     ];
 
-    $node_types = $this->entityTypeManager->getStorage('node_type')->loadMultiple();
-    $options = [];
-    foreach ($node_types as $node_type) {
-      $options[$node_type->id()] = $node_type->label();
-    }
-    $form['entities']['node'] = [
-      '#type' => 'checkboxes',
-      '#title' => $this->t('Node'),
-      '#description' => $this->t('Select the bundles on which enable content lock'),
-      '#options' => $options,
-      '#default_value' => $config->get('node'),
-    ];
+    $definitions = $this->entityTypeManager->getDefinitions();
+    foreach ($definitions as $definition) {
+      if ($definition instanceof ContentEntityTypeInterface && $definition->getBundleEntityType()) {
+        $bundles = $this->entityTypeManager
+          ->getStorage($definition->getBundleEntityType())
+          ->loadMultiple();
 
-    $block_content_types = $this->entityTypeManager->getStorage('block_content_type')->loadMultiple();
-    $options = [];
-    foreach ($block_content_types as $block_content_type) {
-      $options[$block_content_type->id()] = $block_content_type->label();
+        $options = [];
+        foreach ($bundles as $bundle) {
+          $options[$bundle->id()] = $bundle->label();
+        }
+        if ($options) {
+          $form['entities'][$definition->id()] = [
+            '#type' => 'checkboxes',
+            '#title' => $definition->getLabel(),
+            '#description' => $this->t('Select the bundles on which enable content lock'),
+            '#options' => $options,
+            '#default_value' => $config->get('types.' . $definition->id()) ?: [],
+          ];
+        }
+      }
     }
-    $form['entities']['block_content'] = [
-      '#type' => 'checkboxes',
-      '#title' => $this->t('Block content'),
-      '#description' => $this->t('Select the Block content types on which enable content lock'),
-      '#options' => $options,
-      '#default_value' => $config->get('block_content'),
-    ];
-
-    $vocabularies = $this->entityTypeManager->getStorage('taxonomy_vocabulary')->loadMultiple();
-    $options = [];
-    foreach ($vocabularies as $vocabulary) {
-      $options[$vocabulary->id()] = $vocabulary->label();
-    }
-    $form['entities']['taxonomy_term'] = [
-      '#type' => 'checkboxes',
-      '#title' => $this->t('Vocabularies'),
-      '#description' => $this->t('Select the vocabularies on which enable content lock'),
-      '#options' => $options,
-      '#default_value' => $config->get('taxonomy_term'),
-    ];
 
     return parent::buildForm($form, $form_state);
-  }
-
-  /**
-   * {@inheritdoc}
-   */
-  public function validateForm(array &$form, FormStateInterface $form_state) {
-    parent::validateForm($form, $form_state);
   }
 
   /**
@@ -143,11 +121,18 @@ class ContentLockSettingsForm extends ConfigFormBase {
   public function submitForm(array &$form, FormStateInterface $form_state) {
     parent::submitForm($form, $form_state);
 
+    $definitions = $this->entityTypeManager->getDefinitions();
+    foreach ($definitions as $definition) {
+      if ($definition instanceof ContentEntityTypeInterface && $definition->getBundleEntityType()) {
+        if ($form_state->getValue($definition->id())) {
+          $this->config('content_lock.settings')
+            ->set('types.' . $definition->id(), $this->removeEmptyValue($form_state->getValue($definition->id())));
+        }
+      }
+    }
+
     $this->config('content_lock.settings')
       ->set('verbose', $form_state->getValue('verbose'))
-      ->set('node', $this->removeEmptyValue($form_state->getValue('node')))
-      ->set('block_content', $this->removeEmptyValue($form_state->getValue('block_content')))
-      ->set('taxonomy_term', $this->removeEmptyValue($form_state->getValue('taxonomy_term')))
       ->save();
   }
 

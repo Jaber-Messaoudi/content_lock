@@ -4,21 +4,12 @@ content_lock.settings:
     verbose:
       type: integer
       label: 'Display content lock messages'
-    node:
+    types:
       type: sequence
-      label: 'Node'
+      label: 'Types'
       sequence:
-        type: string
-        label: 'Bundle'
-    block_content:
-      type: sequence
-      label: 'BlockContent'
-      sequence:
-        type: string
-        label: 'BlockContent type'
-    taxonomy_term:
-      type: sequence
-      label: 'Vocabularies'
-      sequence:
-        type: string
-        label: 'Vocabulary'
+        type: sequence
+        label: 'Entity type'
+        sequence:
+          type: string
+          label: 'Bundle type'

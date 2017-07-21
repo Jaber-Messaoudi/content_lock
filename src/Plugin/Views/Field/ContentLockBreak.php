@@ -30,8 +30,8 @@ class ContentLockBreak extends FieldPluginBase {
   protected function renderLink($data, ResultRow $values) {
     $entity = $this->getEntity($values);
     $url = Url::fromRoute(
-      'content_lock.break_lock.node',
-      ['node' => $entity->id()]
+      'content_lock.break_lock.' . $entity->getEntityTypeId(),
+      ['entity' => $entity->id()]
     );
 
     $break_link = Link::fromTextAndUrl('Break lock', $url);
