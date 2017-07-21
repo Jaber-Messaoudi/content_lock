@@ -31,7 +31,7 @@ function content_lock_help($route_name, RouteMatchInterface $route_match) {
  * Implements hook_entity_type_build().
  */
 function content_lock_entity_type_build(array &$entity_types) {
-  foreach ($entity_types as $type => &$entity_type) {
+  foreach ($entity_types as &$entity_type) {
     if ($entity_type instanceof ContentEntityTypeInterface && $entity_type->getBundleEntityType()) {
       if (!$entity_type->hasHandlerClass('break_lock_form')) {
         $entity_type->setHandlerClass('break_lock_form', '\Drupal\content_lock\Form\EntityBreakLockForm');

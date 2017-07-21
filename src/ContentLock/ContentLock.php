@@ -4,10 +4,12 @@ namespace Drupal\content_lock\ContentLock;
 
 use Drupal\Core\Database\Connection;
 use Drupal\Core\Entity\EntityInterface;
+use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\Core\Extension\ModuleHandler;
 use Drupal\Core\DependencyInjection\ServiceProviderBase;
 use Drupal\Core\Access\CsrfTokenGenerator;
-use Drupal\user\Entity\User;
+use Drupal\Core\Routing\RedirectDestinationInterface;
+use Drupal\Core\StringTranslation\StringTranslationTrait;
 use Drupal\Core\Link;
 use Drupal\Core\Datetime\DateFormatter;
 use Drupal\Core\Session\AccountProxy;
@@ -20,6 +22,8 @@ use Drupal\Core\Url;
  * The content lock service.
  */
 class ContentLock extends ServiceProviderBase {
+
+  use StringTranslationTrait;
 
   /**
    * The database service.
@@ -70,6 +74,22 @@ class ContentLock extends ServiceProviderBase {
   protected $configFactory;
 
   /**
+   * The redirect.destination service.
+   *
+   * @var \Drupal\Core\Routing\RedirectDestination
+   *   The redirect.destination service.
+   */
+  protected $redirectDestination;
+
+  /**
+   * The entity_type.manager service.
+   *
+   * @var \Drupal\Core\Entity\EntityTypeManagerInterface
+   *   The entity_type.manager service.
+   */
+  protected $entityTypeManager;
+
+  /**
    * Constructor.
    *
    * @param \Drupal\Core\Database\Connection $database
@@ -84,14 +104,20 @@ class ContentLock extends ServiceProviderBase {
    *   The current_user service.
    * @param \Drupal\Core\Config\ConfigFactory $configFactory
    *   The config.factory service.
+   * @param \Drupal\Core\Routing\RedirectDestinationInterface $redirectDestination
+   *   The redirect.destination service.
+   * @param \Drupal\Core\Entity\EntityTypeManagerInterface $entityTypeManager
+   *   The entity_type.manager service.
    */
-  public function __construct(Connection $database, ModuleHandler $moduleHandler, CsrfTokenGenerator $csrfToken, DateFormatter $dateFormatter, AccountProxy $currentUser, ConfigFactory $configFactory) {
+  public function __construct(Connection $database, ModuleHandler $moduleHandler, CsrfTokenGenerator $csrfToken, DateFormatter $dateFormatter, AccountProxy $currentUser, ConfigFactory $configFactory, RedirectDestinationInterface $redirectDestination, EntityTypeManagerInterface $entityTypeManager) {
     $this->database = $database;
     $this->moduleHandler = $moduleHandler;
     $this->csrfToken = $csrfToken;
     $this->dateFormatter = $dateFormatter;
     $this->currentUser = $currentUser;
     $this->configFactory = $configFactory;
+    $this->redirectDestination = $redirectDestination;
+    $this->entityTypeManager = $entityTypeManager;
   }
 
   /**
@@ -179,10 +205,10 @@ class ContentLock extends ServiceProviderBase {
    *   String with the message.
    */
   public function displayLockOwner($lock) {
-    $username = User::load($lock->uid);
+    $username = $this->entityTypeManager->getStorage('user')->load($lock->uid);
     $date = $this->dateFormatter->formatInterval(REQUEST_TIME - $lock->timestamp);
 
-    return t('This content is being edited by the user @name and is therefore locked to prevent other users changes. This lock is in place since @date.', [
+    return $this->t('This content is being edited by the user @name and is therefore locked to prevent other users changes. This lock is in place since @date.', [
       '@name' => $username->getDisplayName(),
       '@date' => $date,
     ]);
@@ -191,10 +217,10 @@ class ContentLock extends ServiceProviderBase {
   /**
    * Check lock status.
    *
-   * @param int $uid
-   *   The user id.
    * @param int $entity_id
    *   The entity id.
+   * @param int $uid
+   *   The user id.
    * @param string $entity_type
    *   The entity type.
    *
@@ -377,10 +403,10 @@ class ContentLock extends ServiceProviderBase {
     // No lock yet.
     if ($lock === FALSE || !is_object($lock)) {
       // Save locking into database.
-      $result = $this->lockingSave($entity_id, $uid, $entity_type);
+      $this->lockingSave($entity_id, $uid, $entity_type);
 
       if ($this->verbose() && !$quiet) {
-        drupal_set_message(t('This content is now locked against simultaneous editing. This content will remain locked if you navigate away from this page without saving or unlocking it.'), 'status', FALSE);
+        drupal_set_message($this->t('This content is now locked against simultaneous editing. This content will remain locked if you navigate away from this page without saving or unlocking it.'), 'status', FALSE);
       }
       // Post locking hook.
       $this->moduleHandler->invokeAll('content_lock_locked', [
@@ -402,16 +428,15 @@ class ContentLock extends ServiceProviderBase {
         // Higher permission user can unblock.
         if ($this->currentUser->hasPermission('break content lock')) {
 
-          $destination = \Drupal::destination()->get();
           $link = Link::createFromRoute(
-            t('Break lock'),
+            $this->t('Break lock'),
             'content_lock.break_lock.' . $entity_type,
             ['entity' => $entity_id],
-            ['query' => ['destination' => $destination]]
+            ['query' => ['destination' => $this->redirectDestination->get()]]
           )->toString();
 
           // Let user break lock.
-          drupal_set_message(t('Click here to @link', ['@link' => $link]), 'warning');
+          drupal_set_message($this->t('Click here to @link', ['@link' => $link]), 'warning');
         }
 
         // Return FALSE flag.
@@ -423,7 +448,7 @@ class ContentLock extends ServiceProviderBase {
 
         // Locked by current user.
         if ($this->verbose() && !$quiet) {
-          drupal_set_message(t('This content is now locked by you against simultaneous editing. This content will remain locked if you navigate away from this page without saving or unlocking it.'), 'status', FALSE);
+          drupal_set_message($this->t('This content is now locked by you against simultaneous editing. This content will remain locked if you navigate away from this page without saving or unlocking it.'), 'status', FALSE);
         }
 
         // Send success flag.
@@ -467,11 +492,11 @@ class ContentLock extends ServiceProviderBase {
   /**
    * Builds a button class, link type form element to unlock the content.
    *
-   * @param $entity_type
+   * @param string $entity_type
    *   The entity type of the content.
-   * @param $entity_id
+   * @param int $entity_id
    *   The entity id of the content.
-   * @param $destination
+   * @param string $destination
    *   The destination query parameter to build the link with.
    *
    * @return array
@@ -484,7 +509,7 @@ class ContentLock extends ServiceProviderBase {
     }
     return [
       '#type' => 'link',
-      '#title' => t('Unlock'),
+      '#title' => $this->t('Unlock'),
       '#access' => TRUE,
       '#attributes' => [
         'class' => ['button'],

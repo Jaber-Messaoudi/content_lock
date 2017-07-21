@@ -145,7 +145,7 @@ class ContentLockSettingsForm extends ConfigFormBase {
    * @return array
    *   The array without empty values.
    */
-  protected function removeEmptyValue($array) {
+  protected function removeEmptyValue(array $array) {
     return array_filter($array, function ($value) {
       return !empty($value);
     });
@@ -165,7 +165,7 @@ class ContentLockSettingsForm extends ConfigFormBase {
    *
    * @see _entity_reference_field_settings_process()
    */
-  public static function formProcessMergeParent($element) {
+  public static function formProcessMergeParent(array $element) {
     $parents = $element['#parents'];
     array_pop($parents);
     $element['#parents'] = $parents;

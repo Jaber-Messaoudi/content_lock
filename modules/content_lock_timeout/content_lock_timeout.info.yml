@@ -5,4 +5,4 @@ type: module
 package: Custom
 configure: content_lock_timeout.settings_form
 dependencies:
- - content_lock
+ - content_lock:content_lock

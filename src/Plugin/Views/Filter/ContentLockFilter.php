@@ -5,6 +5,7 @@ namespace Drupal\content_lock\Plugin\Views\Filter;
 use Drupal\views\Plugin\views\filter\BooleanOperator;
 
 /**
+ * Filter handler for content lock.
  *
  * @group views_filter_handlers
  *
@@ -13,7 +14,7 @@ use Drupal\views\Plugin\views\filter\BooleanOperator;
 class ContentLockFilter extends BooleanOperator {
 
   /**
-   * Query.
+   * {@inheritdoc}
    */
   public function query() {
     $this->ensureMyTable();
