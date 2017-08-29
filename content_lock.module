@@ -196,32 +196,39 @@ function content_lock_views_data() {
   $data['content_lock']['table']['provider'] = 'content_lock';
 
   $data['content_lock']['table']['join'] = [
-    'node_field_data' => [
-      'left_field' => 'nid',
-      'field' => 'entity_id',
-      'extra' => [
-        0 => [
-          'field' => 'entity_type',
-          'value' => 'node',
-        ],
-      ],
-    ],
     'users_field_data' => [
       'left_field' => 'uid',
       'field' => 'uid',
     ],
   ];
 
-  $data['content_lock']['nid'] = [
-    'title' => t('Node locked'),
-    'help' => t('The node being locked.'),
-    'relationship' => [
-      'base' => 'node_field_data',
-      'base field' => 'nid',
-      'id' => 'standard',
-      'label' => t('Node locked'),
-    ],
-  ];
+  $types = \Drupal::configFactory()->get('content_lock.settings')->get("types");
+
+  foreach ($types as $type => $bundles) {
+
+    $definition = \Drupal::entityTypeManager()->getDefinition($type);
+    $data['content_lock']['table']['join'][$definition->getDataTable()] = [
+      'left_field' => $definition->getKey('id'),
+      'field' => 'entity_id',
+      'extra' => [
+        0 => [
+          'field' => 'entity_type',
+          'value' => $type,
+        ],
+      ],
+    ];
+
+    $data['content_lock'][$definition->getKey('id')] = [
+      'title' => t('@type locked', ['@type' => $definition->getLabel()]),
+      'help' => t('The @type being locked.', ['@type' => $definition->getLabel()]),
+      'relationship' => [
+        'base' => $definition->getDataTable(),
+        'base field' => $definition->getKey('id'),
+        'id' => 'standard',
+        'label' => t('@type locked', ['@type' => $definition->getLabel()]),
+      ],
+    ];
+  }
 
   $data['content_lock']['uid'] = [
     'title' => t('Lock owner'),

@@ -1,6 +1,6 @@
 <?php
 
-namespace Drupal\content_lock\Plugin\Views\Field;
+namespace Drupal\content_lock\Plugin\views\field;
 
 use Drupal\Core\Link;
 use Drupal\Core\Url;

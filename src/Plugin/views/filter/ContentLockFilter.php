@@ -1,6 +1,6 @@
 <?php
 
-namespace Drupal\content_lock\Plugin\Views\Filter;
+namespace Drupal\content_lock\Plugin\views\filter;
 
 use Drupal\views\Plugin\views\filter\BooleanOperator;
 

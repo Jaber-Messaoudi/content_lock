@@ -1,6 +1,6 @@
 <?php
 
-namespace Drupal\content_lock\Plugin\Views\Sort;
+namespace Drupal\content_lock\Plugin\views\sort;
 
 use Drupal\views\Plugin\views\sort\Standard;
 

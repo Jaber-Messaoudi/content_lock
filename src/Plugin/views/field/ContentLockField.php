@@ -1,6 +1,6 @@
 <?php
 
-namespace Drupal\content_lock\Plugin\Views\Field;
+namespace Drupal\content_lock\Plugin\views\field;
 
 use Drupal\views\Plugin\views\field\Boolean;
 use Drupal\views\ResultRow;
