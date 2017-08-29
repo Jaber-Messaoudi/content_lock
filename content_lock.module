@@ -104,6 +104,11 @@ function content_lock_form_alter(&$form, FormStateInterface $form_state, $form_i
       if (isset($form['actions']['unpublish'])) {
         unset($form['actions']['unpublish']);
       }
+
+      // If moderation state is in use also disable corresponding buttons.
+      if (isset($form['moderation_state'])) {
+        unset($form['moderation_state']);
+      }
     }
     else {
       // ContentLock::locking() returns TRUE if the content is locked by the
