@@ -73,7 +73,7 @@ class ContentLockSettingsForm extends ConfigFormBase {
     ];
     $form['general']['verbose'] = [
       '#type' => 'checkbox',
-      '#title' => $this->t('Enable this option to display messages to editor when he locks a content by editing it.'),
+      '#title' => $this->t('Enable this option to display a message to the user when they lock a content item by editing it.'),
       '#description' => $this->t('Users trying to edit a content locked still see the content lock message.'),
       '#default_value' => $config->get('verbose'),
       '#return_value' => 1,
