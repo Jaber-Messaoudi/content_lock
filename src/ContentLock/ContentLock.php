@@ -8,13 +8,13 @@ use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\Core\Extension\ModuleHandler;
 use Drupal\Core\DependencyInjection\ServiceProviderBase;
 use Drupal\Core\Access\CsrfTokenGenerator;
-use Drupal\Core\Routing\RedirectDestinationInterface;
 use Drupal\Core\StringTranslation\StringTranslationTrait;
 use Drupal\Core\Link;
 use Drupal\Core\Datetime\DateFormatter;
 use Drupal\Core\Session\AccountProxy;
 use Drupal\Core\Config\ConfigFactory;
 use Drupal\Core\Url;
+use Symfony\Component\HttpFoundation\RequestStack;
 
 /**
  * Class ContentLock.
@@ -76,10 +76,10 @@ class ContentLock extends ServiceProviderBase {
   /**
    * The redirect.destination service.
    *
-   * @var \Drupal\Core\Routing\RedirectDestination
-   *   The redirect.destination service.
+   * @var \Symfony\Component\HttpFoundation\Request
+   *   The current request.
    */
-  protected $redirectDestination;
+  protected $currentRequest;
 
   /**
    * The entity_type.manager service.
@@ -104,19 +104,19 @@ class ContentLock extends ServiceProviderBase {
    *   The current_user service.
    * @param \Drupal\Core\Config\ConfigFactory $configFactory
    *   The config.factory service.
-   * @param \Drupal\Core\Routing\RedirectDestinationInterface $redirectDestination
-   *   The redirect.destination service.
+   * @param \Symfony\Component\HttpFoundation\RequestStack $requestStack
+   *   The request stack service.
    * @param \Drupal\Core\Entity\EntityTypeManagerInterface $entityTypeManager
    *   The entity_type.manager service.
    */
-  public function __construct(Connection $database, ModuleHandler $moduleHandler, CsrfTokenGenerator $csrfToken, DateFormatter $dateFormatter, AccountProxy $currentUser, ConfigFactory $configFactory, RedirectDestinationInterface $redirectDestination, EntityTypeManagerInterface $entityTypeManager) {
+  public function __construct(Connection $database, ModuleHandler $moduleHandler, CsrfTokenGenerator $csrfToken, DateFormatter $dateFormatter, AccountProxy $currentUser, ConfigFactory $configFactory, RequestStack $requestStack, EntityTypeManagerInterface $entityTypeManager) {
     $this->database = $database;
     $this->moduleHandler = $moduleHandler;
     $this->csrfToken = $csrfToken;
     $this->dateFormatter = $dateFormatter;
     $this->currentUser = $currentUser;
     $this->configFactory = $configFactory;
-    $this->redirectDestination = $redirectDestination;
+    $this->currentRequest = $requestStack->getCurrentRequest();
     $this->entityTypeManager = $entityTypeManager;
   }
 
@@ -432,7 +432,7 @@ class ContentLock extends ServiceProviderBase {
             $this->t('Break lock'),
             'content_lock.break_lock.' . $entity_type,
             ['entity' => $entity_id],
-            ['query' => ['destination' => $this->redirectDestination->get()]]
+            ['query' => ['destination' => $this->currentRequest->getRequestUri()]]
           )->toString();
 
           // Let user break lock.
