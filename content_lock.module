@@ -81,14 +81,6 @@ function content_lock_form_alter(&$form, FormStateInterface $form_state, $form_i
     $form['actions']['submit']['#submit'][] = 'content_lock_form_submit';
     $form['actions']['publish']['#submit'][] = 'content_lock_form_submit';
 
-    // This hook function is called twice, first when the form loads
-    // and second when the form is submitted.
-    // Only perform set and check for lock on initial form load.
-    $userInput = $form_state->getUserInput();
-    if (!empty($userInput)) {
-      return;
-    }
-
     // We lock the content if it is currently edited by another user.
     if (!$lock_service->locking($entity->id(), $user->id(), $entity_type)) {
       $form['#disabled'] = TRUE;
