@@ -7,6 +7,7 @@ use Drupal\Core\Access\AccessResult;
 use Drupal\Core\Entity\ContentEntityInterface;
 use Drupal\Core\Form\FormBase;
 use Drupal\Core\Form\FormStateInterface;
+use Drupal\Core\Language\LanguageInterface;
 use Drupal\Core\Session\AccountInterface;
 use Drupal\Core\Url;
 use Symfony\Component\DependencyInjection\ContainerInterface;
@@ -60,9 +61,15 @@ class EntityBreakLockForm extends FormBase {
   public function submitForm(array &$form, FormStateInterface $form_state) {
     $entity_type = $form_state->getValue('entity_type_id');
     $entity_id = $form_state->getValue('entity_id');
+    $langcode = $form_state->getValue('langcode');
 
-    $this->lockService->release($entity_id, NULL, $entity_type);
-    drupal_set_message($this->t('Lock broken. Anyone can now edit this content.'));
+    $this->lockService->release($entity_id, $langcode, NULL, $entity_type);
+    if ($form_state->get('translation_lock')) {
+      drupal_set_message($this->t('Lock broken. Anyone can now edit this content translation.'));
+    }
+    else {
+      drupal_set_message($this->t('Lock broken. Anyone can now edit this content.'));
+    }
 
     // Redirect URL to the request destination or the canonical entity view.
     if ($destination = $this->request->query->get('destination')) {
@@ -84,7 +91,12 @@ class EntityBreakLockForm extends FormBase {
   /**
    * {@inheritdoc}
    */
-  public function buildForm(array $form, FormStateInterface $form_state, ContentEntityInterface $entity = NULL) {
+  public function buildForm(array $form, FormStateInterface $form_state, ContentEntityInterface $entity = NULL, $langcode = NULL) {
+    $translation_lock = $this->lockService->isTranslationLockEnabled($entity->getEntityTypeId());
+    if (!$translation_lock) {
+      $langcode = LanguageInterface::LANGCODE_NOT_SPECIFIED;
+    }
+    $form_state->set('translation_lock', $translation_lock);
     $form['#title'] = $this->t('Break Lock for content @label', ['@label' => $entity->label()]);
     $form['entity_id'] = [
       '#type' => 'value',
@@ -93,6 +105,10 @@ class EntityBreakLockForm extends FormBase {
     $form['entity_type_id'] = [
       '#type' => 'value',
       '#value' => $entity->getEntityTypeId(),
+    ];
+    $form['langcode'] = [
+      '#type' => 'value',
+      '#value' => $langcode,
     ];
     $form['submit'] = [
       '#type' => 'submit',

@@ -8,6 +8,7 @@ use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\Core\Extension\ModuleHandler;
 use Drupal\Core\DependencyInjection\ServiceProviderBase;
 use Drupal\Core\Access\CsrfTokenGenerator;
+use Drupal\Core\Language\LanguageInterface;
 use Drupal\Core\StringTranslation\StringTranslationTrait;
 use Drupal\Core\Link;
 use Drupal\Core\Datetime\DateFormatter;
@@ -178,19 +179,25 @@ class ContentLock extends ServiceProviderBase {
    *
    * @param int $entity_id
    *   The entity id.
+   * @param string $langcode
+   *   The translation language code of the entity.
    * @param string $entity_type
    *   The entity type.
    *
    * @return object
    *   The lock for the node. FALSE, if the document is not locked.
    */
-  public function fetchLock($entity_id, $entity_type = 'node') {
+  public function fetchLock($entity_id, $langcode, $entity_type = 'node') {
+    if (!$this->isTranslationLockEnabled($entity_type)) {
+      $langcode = LanguageInterface::LANGCODE_NOT_SPECIFIED;
+    }
     $query = $this->database->select('content_lock', 'c');
     $query->leftJoin('users_field_data', 'u', '%alias.uid = c.uid');
     $query->fields('c')
       ->fields('u', ['name'])
       ->condition('c.entity_type', $entity_type)
-      ->condition('c.entity_id', $entity_id);
+      ->condition('c.entity_id', $entity_id)
+      ->condition('c.langcode', $langcode);
 
     return $query->execute()->fetchObject();
   }
@@ -200,18 +207,29 @@ class ContentLock extends ServiceProviderBase {
    *
    * @param object $lock
    *   The lock for a node.
+   * @param bool $translation_lock
+   *   Defines whether the lock is on translation level or not.
    *
    * @return string
    *   String with the message.
    */
-  public function displayLockOwner($lock) {
+  public function displayLockOwner($lock, $translation_lock) {
     $username = $this->entityTypeManager->getStorage('user')->load($lock->uid);
     $date = $this->dateFormatter->formatInterval(REQUEST_TIME - $lock->timestamp);
 
-    return $this->t('This content is being edited by the user @name and is therefore locked to prevent other users changes. This lock is in place since @date.', [
-      '@name' => $username->getDisplayName(),
-      '@date' => $date,
-    ]);
+    if ($translation_lock) {
+      $message = $this->t('This content translation is being edited by the user @name and is therefore locked to prevent other users changes. This lock is in place since @date.', [
+        '@name' => $username->getDisplayName(),
+        '@date' => $date,
+      ]);
+    }
+    else {
+      $message = $this->t('This content is being edited by the user @name and is therefore locked to prevent other users changes. This lock is in place since @date.', [
+        '@name' => $username->getDisplayName(),
+        '@date' => $date,
+      ]);
+    }
+    return $message;
   }
 
   /**
@@ -219,6 +237,8 @@ class ContentLock extends ServiceProviderBase {
    *
    * @param int $entity_id
    *   The entity id.
+   * @param string $langcode
+   *   The translation language code of the entity.
    * @param int $uid
    *   The user id.
    * @param string $entity_type
@@ -227,13 +247,17 @@ class ContentLock extends ServiceProviderBase {
    * @return bool
    *   Return TRUE OR FALSE.
    */
-  public function isLockedBy($entity_id, $uid, $entity_type = 'node') {
+  public function isLockedBy($entity_id, $langcode, $uid, $entity_type = 'node') {
+    if (!$this->isTranslationLockEnabled($entity_type)) {
+      $langcode = LanguageInterface::LANGCODE_NOT_SPECIFIED;
+    }
     /** @var \Drupal\Core\Database\Query\SelectInterface $query */
     $query = $this->database->select('content_lock', 'c')
       ->fields('c')
       ->condition('entity_id', $entity_id)
       ->condition('uid', $uid)
-      ->condition('entity_type', $entity_type);
+      ->condition('entity_type', $entity_type)
+      ->condition('langcode', $langcode);;
     $num_rows = $query->countQuery()->execute()->fetchField();
     return (bool) $num_rows;
   }
@@ -243,18 +267,23 @@ class ContentLock extends ServiceProviderBase {
    *
    * @param int $entity_id
    *   The entity id.
+   * @param string $langcode
+   *   The translation language code of the entity.
    * @param int $uid
    *   If set, verify that a lock belongs to this user prior to release.
    * @param string $entity_type
    *   The entity type.
    */
-  public function release($entity_id, $uid = NULL, $entity_type = 'node') {
+  public function release($entity_id, $langcode, $uid = NULL, $entity_type = 'node') {
+    if (!$this->isTranslationLockEnabled($entity_type)) {
+      $langcode = LanguageInterface::LANGCODE_NOT_SPECIFIED;
+    }
     // Delete locking item from database.
-    $this->lockingDelete($entity_id, $uid, $entity_type);
+    $this->lockingDelete($entity_id, $langcode, $uid, $entity_type);
 
     $this->moduleHandler->invokeAll(
       'content_lock_release',
-      [$entity_id, $entity_type]
+      [$entity_id, $langcode, $entity_type]
     );
   }
 
@@ -320,6 +349,8 @@ class ContentLock extends ServiceProviderBase {
    *
    * @param int $entity_id
    *   The entity id.
+   * @param string $langcode
+   *   The translation language of the entity.
    * @param int $uid
    *   The user uid.
    * @param string $entity_type
@@ -328,15 +359,20 @@ class ContentLock extends ServiceProviderBase {
    * @return bool
    *   The result of the merge query.
    */
-  protected function lockingSave($entity_id, $uid, $entity_type = 'node') {
+  protected function lockingSave($entity_id, $langcode, $uid, $entity_type = 'node') {
+    if (!$this->isTranslationLockEnabled($entity_type)) {
+      $langcode = LanguageInterface::LANGCODE_NOT_SPECIFIED;
+    }
     $result = $this->database->merge('content_lock')
       ->key([
         'entity_id' => $entity_id,
         'entity_type' => $entity_type,
+        'langcode' => $langcode,
       ])
       ->fields([
         'entity_id' => $entity_id,
         'entity_type' => $entity_type,
+        'langcode' => $langcode,
         'uid' => $uid,
         'timestamp' => REQUEST_TIME,
       ])
@@ -350,6 +386,8 @@ class ContentLock extends ServiceProviderBase {
    *
    * @param int $entity_id
    *   The entity id.
+   * @param string $langcode
+   *   The translation language of the entity.
    * @param int $uid
    *   The user uid.
    * @param string $entity_type
@@ -358,10 +396,14 @@ class ContentLock extends ServiceProviderBase {
    * @return bool
    *   The result of the delete query.
    */
-  protected function lockingDelete($entity_id, $uid, $entity_type = 'node') {
+  protected function lockingDelete($entity_id, $langcode, $uid, $entity_type = 'node') {
+    if (!$this->isTranslationLockEnabled($entity_type)) {
+      $langcode = LanguageInterface::LANGCODE_NOT_SPECIFIED;
+    }
     $query = $this->database->delete('content_lock')
       ->condition('entity_type', $entity_type)
-      ->condition('entity_id', $entity_id);
+      ->condition('entity_id', $entity_id)
+      ->condition('langcode', $langcode);
     if (!empty($uid)) {
       $query->condition('uid', $uid);
     }
@@ -386,6 +428,8 @@ class ContentLock extends ServiceProviderBase {
    *
    * @param int $entity_id
    *   The entity id.
+   * @param string $langcode
+   *   The translation language of the entity.
    * @param int $uid
    *   The user id to lock the node for.
    * @param string $entity_type
@@ -396,21 +440,32 @@ class ContentLock extends ServiceProviderBase {
    * @return bool
    *   FALSE, if a document has already been locked by someone else.
    */
-  public function locking($entity_id, $uid, $entity_type = 'node', $quiet = FALSE) {
+  public function locking($entity_id, $langcode, $uid, $entity_type = 'node', $quiet = FALSE) {
+    $translation_lock = $this->isTranslationLockEnabled($entity_type);
+    if (!$translation_lock) {
+      $langcode = LanguageInterface::LANGCODE_NOT_SPECIFIED;
+    }
+
     // Check locking status.
-    $lock = $this->fetchLock($entity_id, $entity_type);
+    $lock = $this->fetchLock($entity_id, $langcode, $entity_type);
 
     // No lock yet.
     if ($lock === FALSE || !is_object($lock)) {
       // Save locking into database.
-      $this->lockingSave($entity_id, $uid, $entity_type);
+      $this->lockingSave($entity_id, $langcode, $uid, $entity_type);
 
       if ($this->verbose() && !$quiet) {
-        drupal_set_message($this->t('This content is now locked against simultaneous editing. This content will remain locked if you navigate away from this page without saving or unlocking it.'), 'status', FALSE);
+        if ($translation_lock) {
+          drupal_set_message($this->t('This content translation is now locked against simultaneous editing. This content translation will remain locked if you navigate away from this page without saving or unlocking it.'), 'status', FALSE);
+        }
+        else {
+          drupal_set_message($this->t('This content is now locked against simultaneous editing. This content will remain locked if you navigate away from this page without saving or unlocking it.'), 'status', FALSE);
+        }
       }
       // Post locking hook.
       $this->moduleHandler->invokeAll('content_lock_locked', [
         $entity_id,
+        $langcode,
         $uid,
         $entity_type,
       ]);
@@ -422,7 +477,7 @@ class ContentLock extends ServiceProviderBase {
       // Currently locking by other user.
       if ($lock->uid != $uid) {
         // Send message.
-        $message = $this->displayLockOwner($lock);
+        $message = $this->displayLockOwner($lock, $translation_lock);
         drupal_set_message($message, 'warning');
 
         // Higher permission user can unblock.
@@ -431,7 +486,7 @@ class ContentLock extends ServiceProviderBase {
           $link = Link::createFromRoute(
             $this->t('Break lock'),
             'content_lock.break_lock.' . $entity_type,
-            ['entity' => $entity_id],
+            ['entity' => $entity_id, 'langcode' => $langcode],
             ['query' => ['destination' => $this->currentRequest->getRequestUri()]]
           )->toString();
 
@@ -444,11 +499,16 @@ class ContentLock extends ServiceProviderBase {
       }
       else {
         // Save locking into database.
-        $this->lockingSave($entity_id, $uid, $entity_type);
+        $this->lockingSave($entity_id, $langcode, $uid, $entity_type);
 
         // Locked by current user.
         if ($this->verbose() && !$quiet) {
-          drupal_set_message($this->t('This content is now locked by you against simultaneous editing. This content will remain locked if you navigate away from this page without saving or unlocking it.'), 'status', FALSE);
+          if ($translation_lock) {
+            drupal_set_message($this->t('This content translation is now locked by you against simultaneous editing. This content translation will remain locked if you navigate away from this page without saving or unlocking it.'), 'status', FALSE);
+          }
+          else {
+            drupal_set_message($this->t('This content is now locked by you against simultaneous editing. This content translation will remain locked if you navigate away from this page without saving or unlocking it.'), 'status', FALSE);
+          }
         }
 
         // Send success flag.
@@ -476,6 +536,7 @@ class ContentLock extends ServiceProviderBase {
     $this->moduleHandler->invokeAll('content_lock_entity_lockable', [
       $entity,
       $entity_id,
+      $entity->language()->getId(),
       $entity_type,
       $bundle,
       $config,
@@ -496,17 +557,23 @@ class ContentLock extends ServiceProviderBase {
    *   The entity type of the content.
    * @param int $entity_id
    *   The entity id of the content.
+   * @param string $langcode
+   *   The translation language code of the entity.
    * @param string $destination
    *   The destination query parameter to build the link with.
    *
    * @return array
    *   The link form element.
    */
-  public function unlockButton($entity_type, $entity_id, $destination) {
+  public function unlockButton($entity_type, $entity_id, $langcode, $destination) {
     $unlock_url_options = [];
     if ($destination) {
       $unlock_url_options['query'] = ['destination' => $destination];
     }
+    $route_parameters = [
+      'entity' => $entity_id,
+      'langcode' => $this->isTranslationLockEnabled($entity_type) ? $langcode : LanguageInterface::LANGCODE_NOT_SPECIFIED,
+    ];
     return [
       '#type' => 'link',
       '#title' => $this->t('Unlock'),
@@ -514,9 +581,23 @@ class ContentLock extends ServiceProviderBase {
       '#attributes' => [
         'class' => ['button'],
       ],
-      '#url' => Url::fromRoute('content_lock.break_lock.' . $entity_type, ['entity' => $entity_id], $unlock_url_options),
+      '#url' => Url::fromRoute('content_lock.break_lock.' . $entity_type, $route_parameters, $unlock_url_options),
       '#weight' => 200,
     ];
+  }
+
+  /**
+   * Checks whether the entity type is lockable on translation level.
+   *
+   * @param string $entity_type_id
+   *   The entity type ID.
+   *
+   * @return bool
+   *   TRUE if the entity type should be locked on translation level, FALSE if
+   *   it should be locked on entity level.
+   */
+  public function isTranslationLockEnabled($entity_type_id) {
+    return $this->moduleHandler->moduleExists('conflict') && in_array($entity_type_id, $this->configFactory->get('content_lock.settings')->get("types_translation_lock"));
   }
 
 }

@@ -13,3 +13,6 @@ content_lock.settings:
         sequence:
           type: string
           label: 'Bundle type'
+    types_translation_lock:
+      type: sequence
+      label: 'Entity types with translation lock on'

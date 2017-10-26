@@ -5,6 +5,8 @@
  * Create content_lock table.
  */
 
+use Drupal\Core\Language\LanguageInterface;
+
 /**
  * Implements hook_schema().
  */
@@ -26,6 +28,13 @@ function content_lock_schema() {
         'length' => 255,
         'not null' => TRUE,
         'default' => 'node',
+      ],
+      'langcode' => [
+        'description' => 'The language code of the entity.',
+        'type' => 'varchar_ascii',
+        'length' => 12,
+        'not null' => TRUE,
+        'default' => LanguageInterface::LANGCODE_NOT_SPECIFIED,
       ],
       'uid' => [
         'description' => 'User that holds the lock.',
