@@ -102,24 +102,33 @@ class ContentLockSettingsForm extends ConfigFormBase {
 
     $definitions = $this->entityTypeManager->getDefinitions();
     foreach ($definitions as $definition) {
-      if ($definition instanceof ContentEntityTypeInterface && $definition->getBundleEntityType()) {
-        $bundles = $this->entityTypeManager
-          ->getStorage($definition->getBundleEntityType())
-          ->loadMultiple();
+      if ($definition instanceof ContentEntityTypeInterface) {
+        $options = [
+          '*' => $this->t('All bundles'),
+        ];
 
-        $options = [];
-        foreach ($bundles as $bundle) {
-          $options[$bundle->id()] = $bundle->label();
+        if ($definition->getBundleEntityType()) {
+          $bundles = $this->entityTypeManager
+            ->getStorage($definition->getBundleEntityType())
+            ->loadMultiple();
+
+          foreach ($bundles as $bundle) {
+            $options[$bundle->id()] = $bundle->label();
+          }
         }
-        if ($options) {
-          $form['entities'][$definition->id()]['bundles'] = [
-            '#type' => 'checkboxes',
-            '#title' => $definition->getLabel(),
-            '#description' => $this->t('Select the bundles on which enable content lock'),
-            '#options' => $options,
-            '#default_value' => $config->get('types.' . $definition->id()) ?: [],
-          ];
+        else {
+          $options[$definition->id()] = $definition->getLabel();
         }
+
+        $form['entities'][$definition->id()]['bundles'] = [
+          '#type' => 'checkboxes',
+          '#title' => $definition->getLabel(),
+          '#description' => $this->t('Select the bundles on which enable content lock'),
+          '#options' => $options,
+          '#default_value' => $config->get('types.' . $definition->id()) ?: [],
+          '#attributes' => ['class' => ['content-lock-entity-settings']],
+        ];
+
         $form['entities'][$definition->id()]['translation_lock'] = [
           '#type' => 'checkbox',
           '#title' => $this->t('Lock only on entity translation level.'),
@@ -140,6 +149,7 @@ class ContentLockSettingsForm extends ConfigFormBase {
       }
     }
 
+    $form['#attached']['library'][] = 'content_lock/drupal.content_lock.settings';
     return parent::buildForm($form, $form_state);
   }
 
@@ -151,7 +161,7 @@ class ContentLockSettingsForm extends ConfigFormBase {
 
     $definitions = $this->entityTypeManager->getDefinitions();
     foreach ($definitions as $definition) {
-      if ($definition instanceof ContentEntityTypeInterface && $definition->getBundleEntityType()) {
+      if ($definition instanceof ContentEntityTypeInterface) {
         if ($form_state->getValue($definition->id())) {
           $content_lock = $this->config('content_lock.settings');
           $content_lock->set('types.' . $definition->id(), $this->removeEmptyValue($form_state->getValue([$definition->id(), 'bundles'])));

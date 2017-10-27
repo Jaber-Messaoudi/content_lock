@@ -1,0 +1,6 @@
+drupal.content_lock.settings:
+  version: VERSION
+  js:
+    js/content_lock_settings.js: {}
+  dependencies:
+    - core/jquery

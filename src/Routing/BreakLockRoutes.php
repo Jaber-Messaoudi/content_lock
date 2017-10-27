@@ -41,7 +41,7 @@ class BreakLockRoutes implements ContainerInjectionInterface {
 
     $definitions = $this->entityTypeManager->getDefinitions();
     foreach ($definitions as $definition) {
-      if ($definition instanceof ContentEntityTypeInterface && $definition->getBundleEntityType()) {
+      if ($definition instanceof ContentEntityTypeInterface) {
         $routes['content_lock.break_lock.' . $definition->id()] = new Route(
           '/admin/break-lock/' . $definition->id() . '/{entity}/{langcode}',
           [

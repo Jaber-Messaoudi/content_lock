@@ -542,7 +542,7 @@ class ContentLock extends ServiceProviderBase {
       $config,
     ]);
 
-    if (is_array($config) && in_array($bundle, $config)) {
+    if (is_array($config) && (in_array($bundle, $config) || in_array('*', $config))) {
       return TRUE;
     }
 
