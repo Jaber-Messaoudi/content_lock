@@ -62,8 +62,9 @@ class EntityBreakLockForm extends FormBase {
     $entity_type = $form_state->getValue('entity_type_id');
     $entity_id = $form_state->getValue('entity_id');
     $langcode = $form_state->getValue('langcode');
+    $form_op = $form_state->getValue('form_op') ?: NULL;
 
-    $this->lockService->release($entity_id, $langcode, NULL, $entity_type);
+    $this->lockService->release($entity_id, $langcode, $form_op,NULL, $entity_type);
     if ($form_state->get('translation_lock')) {
       drupal_set_message($this->t('Lock broken. Anyone can now edit this content translation.'));
     }
@@ -91,12 +92,18 @@ class EntityBreakLockForm extends FormBase {
   /**
    * {@inheritdoc}
    */
-  public function buildForm(array $form, FormStateInterface $form_state, ContentEntityInterface $entity = NULL, $langcode = NULL) {
+  public function buildForm(array $form, FormStateInterface $form_state, ContentEntityInterface $entity = NULL, $langcode = NULL, $form_op = NULL) {
     $translation_lock = $this->lockService->isTranslationLockEnabled($entity->getEntityTypeId());
     if (!$translation_lock) {
       $langcode = LanguageInterface::LANGCODE_NOT_SPECIFIED;
     }
     $form_state->set('translation_lock', $translation_lock);
+
+    $form_op_lock = $this->lockService->isFormOperationLockEnabled($entity->getEntityTypeId());
+    if (!$form_op_lock) {
+      $form_op = '*';
+    }
+
     $form['#title'] = $this->t('Break Lock for content @label', ['@label' => $entity->label()]);
     $form['entity_id'] = [
       '#type' => 'value',
@@ -109,6 +116,10 @@ class EntityBreakLockForm extends FormBase {
     $form['langcode'] = [
       '#type' => 'value',
       '#value' => $langcode,
+    ];
+    $form['form_op'] = [
+      '#type' => 'value',
+      '#value' => $form_op,
     ];
     $form['submit'] = [
       '#type' => 'submit',

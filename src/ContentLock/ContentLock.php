@@ -27,6 +27,21 @@ class ContentLock extends ServiceProviderBase {
   use StringTranslationTrait;
 
   /**
+   * Form operation mode disabled.
+   */
+  const FORM_OP_MODE_DISABLED = 0;
+
+  /**
+   * Form operation mode whitelist.
+   */
+  const FORM_OP_MODE_WHITELIST = 1;
+
+  /**
+   * Form operation mode blacklist.
+   */
+  const FORM_OP_MODE_BLACKLIST = 2;
+
+  /**
    * The database service.
    *
    * @var \Drupal\Core\Database\Connection
@@ -181,15 +196,20 @@ class ContentLock extends ServiceProviderBase {
    *   The entity id.
    * @param string $langcode
    *   The translation language code of the entity.
+   * @param string $form_op
+   *   (optional) The entity form operation.
    * @param string $entity_type
    *   The entity type.
    *
    * @return object
    *   The lock for the node. FALSE, if the document is not locked.
    */
-  public function fetchLock($entity_id, $langcode, $entity_type = 'node') {
+  public function fetchLock($entity_id, $langcode, $form_op = NULL, $entity_type = 'node') {
     if (!$this->isTranslationLockEnabled($entity_type)) {
       $langcode = LanguageInterface::LANGCODE_NOT_SPECIFIED;
+    }
+    if (!$this->isFormOperationLockEnabled($entity_type)) {
+      $form_op = '*';
     }
     $query = $this->database->select('content_lock', 'c');
     $query->leftJoin('users_field_data', 'u', '%alias.uid = c.uid');
@@ -198,6 +218,9 @@ class ContentLock extends ServiceProviderBase {
       ->condition('c.entity_type', $entity_type)
       ->condition('c.entity_id', $entity_id)
       ->condition('c.langcode', $langcode);
+    if (isset($form_op)) {
+      $query->condition('c.form_op', $form_op);
+    }
 
     return $query->execute()->fetchObject();
   }
@@ -239,6 +262,8 @@ class ContentLock extends ServiceProviderBase {
    *   The entity id.
    * @param string $langcode
    *   The translation language code of the entity.
+   * @param string $form_op
+   *   The entity form operation.
    * @param int $uid
    *   The user id.
    * @param string $entity_type
@@ -247,9 +272,12 @@ class ContentLock extends ServiceProviderBase {
    * @return bool
    *   Return TRUE OR FALSE.
    */
-  public function isLockedBy($entity_id, $langcode, $uid, $entity_type = 'node') {
+  public function isLockedBy($entity_id, $langcode, $form_op, $uid, $entity_type = 'node') {
     if (!$this->isTranslationLockEnabled($entity_type)) {
       $langcode = LanguageInterface::LANGCODE_NOT_SPECIFIED;
+    }
+    if (!$this->isFormOperationLockEnabled($entity_type)) {
+      $form_op = '*';
     }
     /** @var \Drupal\Core\Database\Query\SelectInterface $query */
     $query = $this->database->select('content_lock', 'c')
@@ -257,7 +285,8 @@ class ContentLock extends ServiceProviderBase {
       ->condition('entity_id', $entity_id)
       ->condition('uid', $uid)
       ->condition('entity_type', $entity_type)
-      ->condition('langcode', $langcode);;
+      ->condition('langcode', $langcode)
+      ->condition('form_op', $form_op);
     $num_rows = $query->countQuery()->execute()->fetchField();
     return (bool) $num_rows;
   }
@@ -269,21 +298,26 @@ class ContentLock extends ServiceProviderBase {
    *   The entity id.
    * @param string $langcode
    *   The translation language code of the entity.
+   * @param string $form_op
+   *   (optional) The entity form operation.
    * @param int $uid
    *   If set, verify that a lock belongs to this user prior to release.
    * @param string $entity_type
    *   The entity type.
    */
-  public function release($entity_id, $langcode, $uid = NULL, $entity_type = 'node') {
+  public function release($entity_id, $langcode, $form_op = NULL, $uid = NULL, $entity_type = 'node') {
     if (!$this->isTranslationLockEnabled($entity_type)) {
       $langcode = LanguageInterface::LANGCODE_NOT_SPECIFIED;
     }
+    if (!$this->isFormOperationLockEnabled($entity_type)) {
+      $form_op = '*';
+    }
     // Delete locking item from database.
-    $this->lockingDelete($entity_id, $langcode, $uid, $entity_type);
+    $this->lockingDelete($entity_id, $langcode, $form_op, $uid, $entity_type);
 
     $this->moduleHandler->invokeAll(
       'content_lock_release',
-      [$entity_id, $langcode, $entity_type]
+      [$entity_id, $langcode, $form_op, $entity_type]
     );
   }
 
@@ -351,6 +385,8 @@ class ContentLock extends ServiceProviderBase {
    *   The entity id.
    * @param string $langcode
    *   The translation language of the entity.
+   * @param string $form_op
+   *   The entity form operation.
    * @param int $uid
    *   The user uid.
    * @param string $entity_type
@@ -359,20 +395,25 @@ class ContentLock extends ServiceProviderBase {
    * @return bool
    *   The result of the merge query.
    */
-  protected function lockingSave($entity_id, $langcode, $uid, $entity_type = 'node') {
+  protected function lockingSave($entity_id, $langcode, $form_op, $uid, $entity_type = 'node') {
     if (!$this->isTranslationLockEnabled($entity_type)) {
       $langcode = LanguageInterface::LANGCODE_NOT_SPECIFIED;
+    }
+    if (!$this->isFormOperationLockEnabled($entity_type)) {
+      $form_op = '*';
     }
     $result = $this->database->merge('content_lock')
       ->key([
         'entity_id' => $entity_id,
         'entity_type' => $entity_type,
         'langcode' => $langcode,
+        'form_op' => $form_op,
       ])
       ->fields([
         'entity_id' => $entity_id,
         'entity_type' => $entity_type,
         'langcode' => $langcode,
+        'form_op' => $form_op,
         'uid' => $uid,
         'timestamp' => REQUEST_TIME,
       ])
@@ -388,6 +429,8 @@ class ContentLock extends ServiceProviderBase {
    *   The entity id.
    * @param string $langcode
    *   The translation language of the entity.
+   * @param string $form_op
+   *   (optional) The entity form operation.
    * @param int $uid
    *   The user uid.
    * @param string $entity_type
@@ -396,14 +439,20 @@ class ContentLock extends ServiceProviderBase {
    * @return bool
    *   The result of the delete query.
    */
-  protected function lockingDelete($entity_id, $langcode, $uid, $entity_type = 'node') {
+  protected function lockingDelete($entity_id, $langcode, $form_op = NULL, $uid, $entity_type = 'node') {
     if (!$this->isTranslationLockEnabled($entity_type)) {
       $langcode = LanguageInterface::LANGCODE_NOT_SPECIFIED;
+    }
+    if (!$this->isFormOperationLockEnabled($entity_type)) {
+      $form_op = '*';
     }
     $query = $this->database->delete('content_lock')
       ->condition('entity_type', $entity_type)
       ->condition('entity_id', $entity_id)
       ->condition('langcode', $langcode);
+    if (isset($form_op)) {
+     $query->condition('form_op', $form_op);
+    }
     if (!empty($uid)) {
       $query->condition('uid', $uid);
     }
@@ -430,6 +479,8 @@ class ContentLock extends ServiceProviderBase {
    *   The entity id.
    * @param string $langcode
    *   The translation language of the entity.
+   * @param string $form_op
+   *   The entity form operation.
    * @param int $uid
    *   The user id to lock the node for.
    * @param string $entity_type
@@ -439,20 +490,26 @@ class ContentLock extends ServiceProviderBase {
    *
    * @return bool
    *   FALSE, if a document has already been locked by someone else.
+   *
+   * @throws \InvalidArgumentException
+   *   An exception will be thrown if the
    */
-  public function locking($entity_id, $langcode, $uid, $entity_type = 'node', $quiet = FALSE) {
+  public function locking($entity_id, $langcode, $form_op, $uid, $entity_type = 'node', $quiet = FALSE) {
     $translation_lock = $this->isTranslationLockEnabled($entity_type);
     if (!$translation_lock) {
       $langcode = LanguageInterface::LANGCODE_NOT_SPECIFIED;
     }
+    if (!$this->isFormOperationLockEnabled($entity_type)) {
+      $form_op = '*';
+    }
 
     // Check locking status.
-    $lock = $this->fetchLock($entity_id, $langcode, $entity_type);
+    $lock = $this->fetchLock($entity_id, $langcode, $form_op, $entity_type);
 
     // No lock yet.
     if ($lock === FALSE || !is_object($lock)) {
       // Save locking into database.
-      $this->lockingSave($entity_id, $langcode, $uid, $entity_type);
+      $this->lockingSave($entity_id, $langcode, $form_op, $uid, $entity_type);
 
       if ($this->verbose() && !$quiet) {
         if ($translation_lock) {
@@ -466,8 +523,9 @@ class ContentLock extends ServiceProviderBase {
       $this->moduleHandler->invokeAll('content_lock_locked', [
         $entity_id,
         $langcode,
+        $form_op,
         $uid,
-        $entity_type,
+        $entity_type
       ]);
 
       // Send success flag.
@@ -486,7 +544,11 @@ class ContentLock extends ServiceProviderBase {
           $link = Link::createFromRoute(
             $this->t('Break lock'),
             'content_lock.break_lock.' . $entity_type,
-            ['entity' => $entity_id, 'langcode' => $langcode],
+            [
+              'entity' => $entity_id,
+              'langcode' => $langcode,
+              'form_op' => $form_op,
+            ],
             ['query' => ['destination' => $this->currentRequest->getRequestUri()]]
           )->toString();
 
@@ -499,7 +561,7 @@ class ContentLock extends ServiceProviderBase {
       }
       else {
         // Save locking into database.
-        $this->lockingSave($entity_id, $langcode, $uid, $entity_type);
+        $this->lockingSave($entity_id, $langcode, $form_op, $uid, $entity_type);
 
         // Locked by current user.
         if ($this->verbose() && !$quiet) {
@@ -522,11 +584,13 @@ class ContentLock extends ServiceProviderBase {
    *
    * @param \Drupal\Core\Entity\EntityInterface $entity
    *   The entity to check.
+   * @param string $form_op
+   *   (optional) The entity form operation.
    *
    * @return bool
    *   TRUE is entity is lockable
    */
-  public function isLockable(EntityInterface $entity) {
+  public function isLockable(EntityInterface $entity, $form_op = NULL) {
     $entity_id = $entity->id();
     $entity_type = $entity->getEntityTypeId();
     $bundle = $entity->bundle();
@@ -537,12 +601,26 @@ class ContentLock extends ServiceProviderBase {
       $entity,
       $entity_id,
       $entity->language()->getId(),
+      $form_op,
       $entity_type,
       $bundle,
       $config,
     ]);
 
     if (is_array($config) && (in_array($bundle, $config) || in_array('*', $config))) {
+      if (isset($form_op) && $this->isFormOperationLockEnabled($entity_type)) {
+        $mode = $this->configFactory->get('content_lock.settings')
+          ->get("form_op_lock.$entity_type.mode");
+        $values = $this->configFactory->get('content_lock.settings')
+          ->get("form_op_lock.$entity_type.values");
+
+        if ($mode == self::FORM_OP_MODE_BLACKLIST) {
+          return !in_array($form_op, $values);
+        }
+        elseif ($mode == self::FORM_OP_MODE_WHITELIST) {
+          return in_array($form_op, $values);
+        }
+      }
       return TRUE;
     }
 
@@ -559,13 +637,15 @@ class ContentLock extends ServiceProviderBase {
    *   The entity id of the content.
    * @param string $langcode
    *   The translation language code of the entity.
+   * @param string $form_op
+   *   The entity form operation.
    * @param string $destination
    *   The destination query parameter to build the link with.
    *
    * @return array
    *   The link form element.
    */
-  public function unlockButton($entity_type, $entity_id, $langcode, $destination) {
+  public function unlockButton($entity_type, $entity_id, $langcode, $form_op, $destination) {
     $unlock_url_options = [];
     if ($destination) {
       $unlock_url_options['query'] = ['destination' => $destination];
@@ -573,6 +653,7 @@ class ContentLock extends ServiceProviderBase {
     $route_parameters = [
       'entity' => $entity_id,
       'langcode' => $this->isTranslationLockEnabled($entity_type) ? $langcode : LanguageInterface::LANGCODE_NOT_SPECIFIED,
+      'form_op' => $this->isFormOperationLockEnabled($entity_type) ? $form_op : '*',
     ];
     return [
       '#type' => 'link',
@@ -598,6 +679,20 @@ class ContentLock extends ServiceProviderBase {
    */
   public function isTranslationLockEnabled($entity_type_id) {
     return $this->moduleHandler->moduleExists('conflict') && in_array($entity_type_id, $this->configFactory->get('content_lock.settings')->get("types_translation_lock"));
+  }
+
+  /**
+   * Checks whether the entity type is lockable on translation level.
+   *
+   * @param $entity_type_id
+   *   The entity type ID.
+   *
+   * @return bool
+   *   TRUE if the entity type should be locked on translation level, FALSE if
+   *   it should be locked on entity level.
+   */
+  public function isFormOperationLockEnabled($entity_type_id) {
+    return $this->configFactory->get('content_lock.settings')->get("form_op_lock.$entity_type_id.mode") != self::FORM_OP_MODE_DISABLED;
   }
 
 }

@@ -5,6 +5,7 @@
  * Create content_lock table.
  */
 
+use Drupal\Core\Database\Database;
 use Drupal\Core\Language\LanguageInterface;
 
 /**
@@ -28,6 +29,13 @@ function content_lock_schema() {
         'length' => 255,
         'not null' => TRUE,
         'default' => 'node',
+      ],
+      'form_op' => [
+        'description' => 'The entity form operation.',
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => TRUE,
+        'default' => '*',
       ],
       'langcode' => [
         'description' => 'The language code of the entity.',
@@ -65,4 +73,33 @@ function content_lock_schema() {
   ];
 
   return $schema;
+}
+
+/**
+ * Add new schema for form op and translation locks.
+ */
+function content_lock_update_8001() {
+  $schema = Database::getConnection()->schema();
+  $table_name = 'content_lock';
+  $new_columns = [
+    'form_op' => [
+      'description' => 'The entity form operation.',
+      'type' => 'varchar',
+      'length' => 255,
+      'not null' => TRUE,
+      'default' => '*',
+    ],
+    'langcode' => [
+      'description' => 'The language code of the entity.',
+      'type' => 'varchar_ascii',
+      'length' => 12,
+      'not null' => TRUE,
+      'default' => LanguageInterface::LANGCODE_NOT_SPECIFIED,
+    ],
+  ];
+  foreach ($new_columns as $column_name => $spec) {
+    if (!$schema->fieldExists($table_name, $column_name)) {
+      $schema->addField($table_name, $column_name, $spec);
+    }
+  }
 }

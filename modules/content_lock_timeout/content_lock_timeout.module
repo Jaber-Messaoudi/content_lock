@@ -33,7 +33,7 @@ function content_lock_timeout_cron() {
     ->condition('c.timestamp', $last_valid_time, '<');
   $count = 0;
   foreach ($query->execute() as $obj) {
-    $lock_service->release($obj->entity_id, $obj->langcode, $obj->uid, $obj->entity_type);
+    $lock_service->release($obj->entity_id, $obj->langcode, $obj->form_op, $obj->uid, $obj->entity_type);
     $count++;
   }
 
@@ -82,7 +82,7 @@ function content_lock_timeout_entity_prepare_form(EntityInterface $entity, $oper
       && $user->hasPermission('break content lock')
       && ($user->id() > 0)
     ) {
-      $lock_service->release($entity->id(), $entity->language()->getId(), $lock->uid, $entity->getEntityTypeId());
+      $lock_service->release($entity->id(), $entity->language()->getId(), $operation, $lock->uid, $entity->getEntityTypeId());
 
       if ($lock_service->verbose()) {
         $username = User::load($lock->uid)->getDisplayName();

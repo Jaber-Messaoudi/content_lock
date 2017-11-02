@@ -16,3 +16,18 @@ content_lock.settings:
     types_translation_lock:
       type: sequence
       label: 'Entity types with translation lock on'
+    form_op_lock:
+      type: sequence
+      label: 'Entity types'
+      sequence:
+        type: mapping
+        mapping:
+          mode:
+            type: integer
+            label: 'Disabled / blacklist / whitelist mode per entity type'
+          values:
+            type: sequence
+            label: 'Whitelisted / blacklisted form operations per entity type'
+            sequence:
+              type: string
+              label: 'form operation'

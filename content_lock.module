@@ -5,15 +5,16 @@
  * Content lock - Main functions of the module.
  */
 
-use Drupal\Core\Language\LanguageInterface;
-use Drupal\Core\Routing\RouteMatchInterface;
-use Drupal\Core\Form\FormStateInterface;
-use Drupal\Core\Entity\EntityInterface;
-use Drupal\user\Entity\User;
-use Drupal\Core\Url;
-use Drupal\Core\Routing\LocalRedirectResponse;
-use Drupal\Core\Entity\EntityFormInterface;
 use Drupal\Core\Entity\ContentEntityTypeInterface;
+use Drupal\Core\Entity\EntityFormInterface;
+use Drupal\Core\Entity\EntityInterface;
+use Drupal\Core\Form\FormStateInterface;
+use Drupal\Core\Language\LanguageInterface;
+use Drupal\Core\Render\Element;
+use Drupal\Core\Routing\LocalRedirectResponse;
+use Drupal\Core\Routing\RouteMatchInterface;
+use Drupal\Core\Url;
+use Drupal\user\Entity\User;
 
 /**
  * Implements hook_help().
@@ -73,7 +74,8 @@ function content_lock_form_alter(&$form, FormStateInterface $form_state, $form_i
   // Check if we must lock this entity.
   /** @var \Drupal\content_lock\ContentLock\ContentLock $lock_service */
   $lock_service = \Drupal::service('content_lock');
-  if (!$lock_service->isLockable($entity)) {
+  $form_op = $form_state->getFormObject()->getOperation();
+  if (!$lock_service->isLockable($entity, $form_op)) {
     return;
   }
 
@@ -83,7 +85,7 @@ function content_lock_form_alter(&$form, FormStateInterface $form_state, $form_i
     $form['actions']['publish']['#submit'][] = 'content_lock_form_submit';
 
     // We lock the content if it is currently edited by another user.
-    if (!$lock_service->locking($entity->id(), $entity->language()->getId(), $user->id(), $entity_type)) {
+    if (!$lock_service->locking($entity->id(), $entity->language()->getId(), $form_op, $user->id(), $entity_type)) {
       $form['#disabled'] = TRUE;
 
       // Do not allow deletion, publishing, or unpublishing if locked.
@@ -106,7 +108,7 @@ function content_lock_form_alter(&$form, FormStateInterface $form_state, $form_i
     else {
       // ContentLock::locking() returns TRUE if the content is locked by the
       // current user. Add an unlock button only for this user.
-      $form['actions']['unlock'] = $lock_service->unlockButton($entity_type, $entity->id(), $entity->language()->getId(), \Drupal::request()->query->get('destination'));
+      $form['actions']['unlock'] = $lock_service->unlockButton($entity_type, $entity->id(), $entity->language()->getId(), $form_op, \Drupal::request()->query->get('destination'));
     }
   }
 }
@@ -124,7 +126,7 @@ function content_lock_form_submit($form, FormStateInterface $form_state) {
   $entity = $form_state->getFormObject()->getEntity();
 
   // If the user submitting owns the lock, release it.
-  $lock_service->release($entity->id(), $entity->language()->getId(), $user->id(), $entity->getEntityTypeId());
+  $lock_service->release($entity->id(), $entity->language()->getId(), $form_state->getFormObject()->getOperation(), $user->id(), $entity->getEntityTypeId());
 
   // We need to redirect to the taxonomy term page after saving it. If not, we
   // stay on the taxonomy term edit form and we relock the term.
@@ -152,7 +154,7 @@ function content_lock_entity_predelete(EntityInterface $entity) {
     return;
   }
 
-  $data = $lock_service->fetchLock($entity_id, $entity->language()->getId(), $entity_type);
+  $data = $lock_service->fetchLock($entity_id, NULL, $entity->language()->getId(), $entity_type);
 
   if ($data !== FALSE) {
     $current_user = \Drupal::currentUser();
@@ -288,7 +290,7 @@ function content_lock_entity_operation(EntityInterface $entity) {
   $lock_service = \Drupal::service('content_lock');
   if ($lock_service->isLockable($entity)) {
 
-    $lock = $lock_service->fetchLock($entity->id(), $entity->getEntityTypeId());
+    $lock = $lock_service->fetchLock($entity->id(), NULL, $entity->getEntityTypeId());
 
     $user = \Drupal::currentUser();
     if ($lock && $user->hasPermission('break content lock')) {
@@ -296,6 +298,7 @@ function content_lock_entity_operation(EntityInterface $entity) {
       $route_parameters = [
         'entity' => $entity->id(),
         'langcode' => $lock_service->isTranslationLockEnabled($entity_type) ? $entity->language()->getId() : LanguageInterface::LANGCODE_NOT_SPECIFIED,
+        'form_op' => '*'
       ];
       $url = 'content_lock.break_lock.' . $entity->getEntityTypeId();
       $operations['break_lock'] = [
@@ -307,4 +310,73 @@ function content_lock_entity_operation(EntityInterface $entity) {
   }
 
   return $operations;
+}
+
+/**
+ * Implements hook_theme().
+ */
+function content_lock_theme() {
+  return [
+    'content_lock_settings_entities' => array(
+      'render element' => 'element',
+    ),
+  ];
+}
+
+/**
+ * Prepares variables for content lock entity settings templates.
+ *
+ * Default template: content-lock-settings-entities.html.twig.
+ *
+ * @param array $variables
+ *   An associative array containing:
+ *   - element: An associative array containing the properties of the element.
+ *     Properties used: #title.
+ */
+function template_preprocess_content_lock_settings_entities(&$variables) {
+  $element = $variables['element'];
+
+  $header = [
+    [
+      'data' => $element['bundles']['#title'],
+      'class' => ['bundle'],
+    ],
+    [
+      'data' => t('Configuration'),
+      'class' => ['operations'],
+    ],
+  ];
+
+  $rows = [];
+  foreach (Element::children($element['bundles']) as $bundle) {
+    $rows[$bundle] = [
+      'data' => [
+        [
+          'data' => $element['bundles'][$bundle],
+          'class' => ['bundle'],
+        ],
+      ],
+      'class' => [],
+    ];
+    if ($bundle == '*') {
+      $rows[$bundle]['data'][] = [
+        'data' => $element['settings'],
+        'class' => ['operations'],
+      ];
+    }
+    else {
+      $rows[$bundle]['data'][] = [
+        'data' => t('Uses "all" settings'),
+        'class' => ['operations'],
+      ];
+      $rows[$bundle]['class'][] = 'bundle-settings';
+    }
+  }
+
+  $variables['title'] = $element['#title'];
+  $variables['build'] = [
+    '#header' => $header,
+    '#rows' => $rows,
+    '#type' => 'table',
+  ];
 }

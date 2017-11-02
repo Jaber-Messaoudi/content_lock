@@ -2,6 +2,7 @@
 
 namespace Drupal\content_lock\Form;
 
+use Drupal\content_lock\ContentLock\ContentLock;
 use Drupal\Core\Entity\ContentEntityTypeInterface;
 use Drupal\Core\Extension\ModuleHandlerInterface;
 use Drupal\Core\Form\ConfigFormBase;
@@ -101,10 +102,44 @@ class ContentLockSettingsForm extends ConfigFormBase {
     ];
 
     $definitions = $this->entityTypeManager->getDefinitions();
+    $entity_types = [];
+    $selected_entity_types = [];
     foreach ($definitions as $definition) {
       if ($definition instanceof ContentEntityTypeInterface) {
+        $entity_types[$definition->id()] = $definition->getLabel();
+        if (!empty($config->get('types.' . $definition->id()))) {
+          $selected_entity_types[] = $definition->id();
+        }
+      }
+    }
+    $form['entities']['entity_types'] = [
+      '#type' => 'checkboxes',
+      '#title' => 'Protected entity types',
+      '#options' => $entity_types,
+      '#default_value' => $selected_entity_types,
+      '#attributes' => [
+        'class' => ['content-lock-entity-types']
+      ],
+    ];
+
+    foreach ($definitions as $definition) {
+      if ($definition instanceof ContentEntityTypeInterface) {
+        $form['entities'][$definition->id()] = [
+          '#type' => 'container',
+          '#title' => $definition->getLabel(),
+          '#theme' => 'content_lock_settings_entities',
+          '#states' => [
+            'visible' => [
+              ':input[name="entity_types[' . $definition->id() . ']"]' => ['checked' => TRUE],
+            ],
+          ],
+          '#attributes' => [
+            'class' => [$definition->id()],
+          ],
+        ];
+
         $options = [
-          '*' => $this->t('All bundles'),
+          '*' => $this->t('All'),
         ];
 
         if ($definition->getBundleEntityType()) {
@@ -119,24 +154,23 @@ class ContentLockSettingsForm extends ConfigFormBase {
         else {
           $options[$definition->id()] = $definition->getLabel();
         }
-
         $form['entities'][$definition->id()]['bundles'] = [
           '#type' => 'checkboxes',
-          '#title' => $definition->getLabel(),
+          '#title' => $definition->getBundleLabel() ?: $definition->getLabel(),
           '#description' => $this->t('Select the bundles on which enable content lock'),
           '#options' => $options,
           '#default_value' => $config->get('types.' . $definition->id()) ?: [],
           '#attributes' => ['class' => ['content-lock-entity-settings']],
         ];
 
-        $form['entities'][$definition->id()]['translation_lock'] = [
+        $form['entities'][$definition->id()]['settings']['translation_lock'] = [
           '#type' => 'checkbox',
           '#title' => $this->t('Lock only on entity translation level.'),
           '#default_value' => in_array($definition->id(), $config->get('types_translation_lock')),
           '#description' => $this->t('Activating this options allows users to edit multiple translations concurrently'),
         ];
         if (!$this->moduleHandler->moduleExists('conflict')) {
-          $form['entities'][$definition->id()]['translation_lock'] = [
+          $form['entities'][$definition->id()]['settings']['translation_lock'] = [
             '#disabled' => TRUE,
             '#default_value' => FALSE,
             '#description' => $this->t('To allow editing multiple translations concurrently you need to install %module',
@@ -144,7 +178,38 @@ class ContentLockSettingsForm extends ConfigFormBase {
                 '%module' => $this->getLinkGenerator()->generate('Conflict', Url::fromUri('https://www.drupal.org/project/conflict')),
               ]
             ),
-          ] + $form['entities'][$definition->id()]['translation_lock'];
+          ] + $form['entities'][$definition->id()]['settings']['translation_lock'];
+        }
+
+        if (!empty($definition->getHandlerClasses()['form'])) {
+          $form['entities'][$definition->id()]['settings']['form_op_lock'] = [
+            '#tree' => 1,
+          ];
+          $form['entities'][$definition->id()]['settings']['form_op_lock']['mode'] = [
+            '#type' => 'radios',
+            '#title' => $this->t('Lock only on entity form operation level.'),
+            '#options' => [
+              ContentLock::FORM_OP_MODE_DISABLED => $this->t('Disabled'),
+              ContentLock::FORM_OP_MODE_WHITELIST => $this->t('Enable lock for selected form operations'),
+              ContentLock::FORM_OP_MODE_BLACKLIST => $this->t('Disable lock for selected form operations'),
+            ],
+            '#default_value' => $config->get('form_op_lock.' . $definition->id() . '.mode') ?: ContentLock::FORM_OP_MODE_DISABLED,
+            '#description' => $this->t('Activating this options allows users to edit different entity forms concurrently')
+          ];
+
+          $form_ops = array_keys($definition->getHandlerClasses()['form']);
+          $form_ops = array_combine($form_ops, $form_ops);
+          $form['entities'][$definition->id()]['settings']['form_op_lock']['values'] = [
+            '#type' => 'checkboxes',
+            '#title' => $this->t('Form operations'),
+            '#options' => $form_ops,
+            '#default_value' => (array) $config->get('form_op_lock.' . $definition->id() . '.values'),
+            '#states' => [
+              'invisible' => [
+                ':input[name="' . $definition->id() . '[settings][form_op_lock][mode]"]' => ['value' => ContentLock::FORM_OP_MODE_DISABLED],
+              ],
+            ],
+          ];
         }
       }
     }
@@ -165,7 +230,8 @@ class ContentLockSettingsForm extends ConfigFormBase {
         if ($form_state->getValue($definition->id())) {
           $content_lock = $this->config('content_lock.settings');
           $content_lock->set('types.' . $definition->id(), $this->removeEmptyValue($form_state->getValue([$definition->id(), 'bundles'])));
-          $translation_lock = (bool) $form_state->getValue([$definition->id(), 'translation_lock']);
+
+          $translation_lock = (bool) $form_state->getValue([$definition->id(), 'settings', 'translation_lock']);
           $types_translation_lock = $content_lock->get('types_translation_lock');
           if ($translation_lock && !in_array($definition->id(), $types_translation_lock)) {
             $types_translation_lock[] = $definition->id();
@@ -174,6 +240,9 @@ class ContentLockSettingsForm extends ConfigFormBase {
             $types_translation_lock = array_diff($types_translation_lock, [$definition->id()]);
           }
           $content_lock->set('types_translation_lock', $types_translation_lock);
+
+          $content_lock->set('form_op_lock.' . $definition->id() . '.mode', $form_state->getValue([$definition->id(), 'settings', 'form_op_lock', 'mode']));
+          $content_lock->set('form_op_lock.' . $definition->id() . '.values', $this->removeEmptyValue((array) $form_state->getValue([$definition->id(), 'settings', 'form_op_lock', 'values'])));
         }
       }
     }
