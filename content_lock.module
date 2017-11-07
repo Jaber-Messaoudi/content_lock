@@ -14,6 +14,7 @@ use Drupal\Core\Render\Element;
 use Drupal\Core\Routing\LocalRedirectResponse;
 use Drupal\Core\Routing\RouteMatchInterface;
 use Drupal\Core\Url;
+use Drupal\Component\Utility\Html;
 use Drupal\user\Entity\User;
 
 /**
@@ -83,6 +84,30 @@ function content_lock_form_alter(&$form, FormStateInterface $form_state, $form_i
   if (!is_null($entity->id())) {
     $form['actions']['submit']['#submit'][] = 'content_lock_form_submit';
     $form['actions']['publish']['#submit'][] = 'content_lock_form_submit';
+
+    if ($lock_service->isJsLock($entity_type)) {
+      $form['#attached']['library'][] = 'content_lock/drupal.content_lock.lock_form';
+      $form['#attached']['drupalSettings']['content_lock'] = [
+        Html::cleanCssIdentifier($form_id) => [
+          'lockUrl' => Url::fromRoute('content_lock.create_lock.' . $entity_type,
+            [
+              'entity' => $entity->id(),
+              'langcode' => $entity->language()->getId(),
+              'form_op' => $form_op,
+            ],
+            ['query' => ['destination' => Drupal::request()->getRequestUri()]]
+          )->toString(),
+        ],
+      ];
+
+      $form['actions']['#attributes']['class'][] = 'content-lock-actions';
+
+      // If moderation state is in use also disable corresponding buttons.
+      if (isset($form['moderation_state'])) {
+        $form['moderation_state']['#attributes']['class'][] = 'content-lock-actions';
+      }
+      return;
+    }
 
     // We lock the content if it is currently edited by another user.
     if (!$lock_service->locking($entity->id(), $entity->language()->getId(), $form_op, $user->id(), $entity_type)) {

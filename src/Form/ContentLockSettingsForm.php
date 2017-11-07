@@ -181,6 +181,13 @@ class ContentLockSettingsForm extends ConfigFormBase {
           ] + $form['entities'][$definition->id()]['settings']['translation_lock'];
         }
 
+        $form['entities'][$definition->id()]['settings']['js_lock'] = [
+          '#type' => 'checkbox',
+          '#title' => $this->t('Lock form using JS.'),
+          '#default_value' => in_array($definition->id(), $config->get('types_js_lock')),
+          '#description' => $this->t('Activating this options activates the lock when the user is on the form. This helps if modules interacting with form without a user interacting with the form, like the prefetch_cache module.')
+        ];
+
         if (!empty($definition->getHandlerClasses()['form'])) {
           $form['entities'][$definition->id()]['settings']['form_op_lock'] = [
             '#tree' => 1,
@@ -224,11 +231,11 @@ class ContentLockSettingsForm extends ConfigFormBase {
   public function submitForm(array &$form, FormStateInterface $form_state) {
     parent::submitForm($form, $form_state);
 
+    $content_lock = $this->config('content_lock.settings');
     $definitions = $this->entityTypeManager->getDefinitions();
     foreach ($definitions as $definition) {
       if ($definition instanceof ContentEntityTypeInterface) {
         if ($form_state->getValue($definition->id())) {
-          $content_lock = $this->config('content_lock.settings');
           $content_lock->set('types.' . $definition->id(), $this->removeEmptyValue($form_state->getValue([$definition->id(), 'bundles'])));
 
           $translation_lock = (bool) $form_state->getValue([$definition->id(), 'settings', 'translation_lock']);
@@ -241,14 +248,23 @@ class ContentLockSettingsForm extends ConfigFormBase {
           }
           $content_lock->set('types_translation_lock', $types_translation_lock);
 
+          $js_lock = (bool) $form_state->getValue([$definition->id(), 'settings', 'js_lock']);
+          $types_js_lock = $content_lock->get('types_js_lock');
+          if ($js_lock && !in_array($definition->id(), $types_js_lock)) {
+            $types_js_lock[] = $definition->id();
+          }
+          elseif (!$js_lock && in_array($definition->id(), $types_js_lock)) {
+            $types_js_lock = array_diff($types_js_lock, [$definition->id()]);
+          }
+          $content_lock->set('types_js_lock', $types_js_lock);
+
           $content_lock->set('form_op_lock.' . $definition->id() . '.mode', $form_state->getValue([$definition->id(), 'settings', 'form_op_lock', 'mode']));
           $content_lock->set('form_op_lock.' . $definition->id() . '.values', $this->removeEmptyValue((array) $form_state->getValue([$definition->id(), 'settings', 'form_op_lock', 'values'])));
         }
       }
     }
 
-    $this->config('content_lock.settings')
-      ->set('verbose', $form_state->getValue('verbose'))
+    $content_lock->set('verbose', $form_state->getValue('verbose'))
       ->save();
   }
 

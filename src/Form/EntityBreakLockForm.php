@@ -131,8 +131,8 @@ class EntityBreakLockForm extends FormBase {
   /**
    * Custom access checker for the form route requirements.
    */
-  public function access(ContentEntityInterface $entity, AccountInterface $account) {
-    return AccessResult::allowedIf($account->hasPermission('break content lock') || $this->lockService->isLockedBy($entity->id(), $account->id(), $entity->getEntityTypeId()));
+  public function access(ContentEntityInterface $entity, $langcode = NULL, $form_op, AccountInterface $account) {
+    return AccessResult::allowedIf($account->hasPermission('break content lock') || $this->lockService->isLockedBy($entity->id(), $langcode, $form_op, $account->id(), $entity->getEntityTypeId()));
   }
 
 }

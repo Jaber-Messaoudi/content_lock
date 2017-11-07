@@ -487,6 +487,8 @@ class ContentLock extends ServiceProviderBase {
    *   The entity type.
    * @param bool $quiet
    *   Suppress any normal user messages.
+   * @param string $destination
+   *   Destination to redirect when break. Defaults to current page.
    *
    * @return bool
    *   FALSE, if a document has already been locked by someone else.
@@ -494,7 +496,7 @@ class ContentLock extends ServiceProviderBase {
    * @throws \InvalidArgumentException
    *   An exception will be thrown if the
    */
-  public function locking($entity_id, $langcode, $form_op, $uid, $entity_type = 'node', $quiet = FALSE) {
+  public function locking($entity_id, $langcode, $form_op, $uid, $entity_type = 'node', $quiet = FALSE, $destination = NULL) {
     $translation_lock = $this->isTranslationLockEnabled($entity_type);
     if (!$translation_lock) {
       $langcode = LanguageInterface::LANGCODE_NOT_SPECIFIED;
@@ -549,7 +551,7 @@ class ContentLock extends ServiceProviderBase {
               'langcode' => $langcode,
               'form_op' => $form_op,
             ],
-            ['query' => ['destination' => $this->currentRequest->getRequestUri()]]
+            ['query' => ['destination' => isset($destination) ?  $destination : $this->currentRequest->getRequestUri()]]
           )->toString();
 
           // Let user break lock.
@@ -626,6 +628,17 @@ class ContentLock extends ServiceProviderBase {
 
     // Always return FALSE.
     return FALSE;
+  }
+
+  /**
+   * Check if for this entity_type content lock over JS is enabled.
+   *
+   * @param $entity_type_id
+   *
+   * @return bool
+   */
+  public function isJsLock($entity_type_id) {
+    return in_array($entity_type_id, $this->configFactory->get('content_lock.settings')->get("types_js_lock"));
   }
 
   /**
