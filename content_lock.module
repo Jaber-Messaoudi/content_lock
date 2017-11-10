@@ -82,8 +82,11 @@ function content_lock_form_alter(&$form, FormStateInterface $form_state, $form_i
 
   // We act only on edit form, not for a creation of a new entity.
   if (!is_null($entity->id())) {
-    $form['actions']['submit']['#submit'][] = 'content_lock_form_submit';
-    $form['actions']['publish']['#submit'][] = 'content_lock_form_submit';
+    foreach (['submit', 'publish'] as $key) {
+      if (isset($form['actions'][$key])) {
+        $form['actions'][$key]['#submit'][] = 'content_lock_form_submit';
+      }
+    }
 
     if ($lock_service->isJsLock($entity_type)) {
       $form['#attached']['library'][] = 'content_lock/drupal.content_lock.lock_form';
@@ -114,15 +117,10 @@ function content_lock_form_alter(&$form, FormStateInterface $form_state, $form_i
       $form['#disabled'] = TRUE;
 
       // Do not allow deletion, publishing, or unpublishing if locked.
-      if (isset($form['actions']['delete'])) {
-        unset($form['actions']['delete']);
-      }
-
-      if (isset($form['actions']['publish'])) {
-        unset($form['actions']['publish']);
-      }
-      if (isset($form['actions']['unpublish'])) {
-        unset($form['actions']['unpublish']);
+      foreach (['delete', 'publish', 'unpublish'] as $key) {
+        if (isset($form['actions'][$key])) {
+          unset($form['actions'][$key]);
+        }
       }
 
       // If moderation state is in use also disable corresponding buttons.
